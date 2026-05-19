@@ -14,7 +14,6 @@ import (
 
 func GetRandomNumbers(num int) string {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-
 	code := ""
 	for i := 0; i < num; i++ {
 		// 0~9随机数

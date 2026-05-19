@@ -24,8 +24,6 @@ func GenerateToken(id int64, username string) (string, error) {
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
-
-	// 生成 token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(config.GetConfig().Key))
 }

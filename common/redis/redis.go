@@ -3,6 +3,8 @@ package redis
 import (
 	"GopherAI/config"
 	"context"
+	"errors"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -28,6 +30,11 @@ func Init() {
 		DB:       db,
 	})
 
+	if err := Rdb.Ping(ctx).Err(); err != nil {
+		log.Printf("[redis] 连接失败 %s: %v（验证码等功能将不可用，请检查 config.toml 中 redisConfig）", addr, err)
+	} else {
+		log.Printf("[redis] 连接成功 %s", addr)
+	}
 }
 
 func SetCaptchaForEmail(email, captcha string) error {
@@ -36,35 +43,18 @@ func SetCaptchaForEmail(email, captcha string) error {
 	return Rdb.Set(ctx, key, captcha, expire).Err()
 }
 
-
-
 func CheckCaptchaForEmail(email, userInput string) (bool, error) {
 	key := GenerateCaptcha(email)
-
-
 	storedCaptcha, err := Rdb.Get(ctx, key).Result()
 	if err != nil {
-		if err == redis.Nil {
-
+		if errors.Is(err, redis.Nil) {
 			return false, nil
 		}
-
 		return false, err
 	}
-
-
-
 	if strings.EqualFold(storedCaptcha, userInput) {
-
-		// 验证成功后删除 key
-		if err := Rdb.Del(ctx, key).Err(); err != nil {
-
-		} else {
-
-		}
+		_ = Rdb.Del(ctx, key).Err()
 		return true, nil
 	}
-
-
 	return false, nil
 }

@@ -2,10 +2,14 @@ package aihelper
 
 import (
 	"GopherAI/common/rabbitmq"
+	"GopherAI/common/rag"
 	"GopherAI/model"
 	"GopherAI/utils"
 	"context"
+	"fmt"
 	"sync"
+
+	"github.com/cloudwego/eino/schema"
 )
 
 // AIHelper AI助手结构体，包含消息历史和AI模型
@@ -62,16 +66,32 @@ func (a *AIHelper) GetMessages() []*model.Message {
 	return out
 }
 
+func (a *AIHelper) buildMessagesWithRAG(ctx context.Context, userQuestion string) []*schema.Message {
+	a.mu.RLock()
+	messages := utils.ConvertToSchemaMessages(a.messages)
+	a.mu.RUnlock()
+
+	contextText := rag.GetService().Retrieve(ctx, userQuestion)
+	if contextText == "" {
+		return messages
+	}
+	systemMsg := &schema.Message{
+		Role: schema.System,
+		Content: fmt.Sprintf(
+			"你是智能助手。请优先根据以下参考资料回答用户问题；若资料中没有相关内容，请明确说明并基于常识谨慎回答，不要编造事实。\n\n参考资料：\n%s",
+			contextText,
+		),
+	}
+	return append([]*schema.Message{systemMsg}, messages...)
+}
+
 // 同步生成
 func (a *AIHelper) GenerateResponse(userName string, ctx context.Context, userQuestion string) (*model.Message, error) {
 
 	//调用存储函数
 	a.AddMessage(userQuestion, userName, true, true)
 
-	a.mu.RLock()
-	//将model.Message转化成schema.Message
-	messages := utils.ConvertToSchemaMessages(a.messages)
-	a.mu.RUnlock()
+	messages := a.buildMessagesWithRAG(ctx, userQuestion)
 
 	//调用模型生成回复
 	schemaMsg, err := a.model.GenerateResponse(ctx, messages)
@@ -94,9 +114,7 @@ func (a *AIHelper) StreamResponse(userName string, ctx context.Context, cb Strea
 	//调用存储函数
 	a.AddMessage(userQuestion, userName, true, true)
 
-	a.mu.RLock()
-	messages := utils.ConvertToSchemaMessages(a.messages)
-	a.mu.RUnlock()
+	messages := a.buildMessagesWithRAG(ctx, userQuestion)
 
 	content, err := a.model.StreamResponse(ctx, messages, cb)
 	if err != nil {

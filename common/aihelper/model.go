@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cloudwego/eino-ext/components/model/ark"
 	"github.com/cloudwego/eino-ext/components/model/ollama"
 	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/components/model"
@@ -22,23 +23,30 @@ type AIModel interface {
 	GetModelType() string
 }
 
-// =================== OpenAI 实现 ===================
 type OpenAIModel struct {
 	llm model.ToolCallingChatModel
 }
 
-func NewOpenAIModel(ctx context.Context) (*OpenAIModel, error) {
-	key := os.Getenv("OPENAI_API_KEY")
-	modelName := os.Getenv("OPENAI_MODEL_NAME")
-	baseURL := os.Getenv("OPENAI_BASE_URL")
-
-	llm, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
-		BaseURL: baseURL,
-		Model:   modelName,
-		APIKey:  key,
+func newChatModel(ctx context.Context) (model.ToolCallingChatModel, error) {
+	if strings.ToLower(strings.TrimSpace(os.Getenv("OPENAI_TYPE"))) == "ark" {
+		return ark.NewChatModel(ctx, &ark.ChatModelConfig{
+			APIKey:  os.Getenv("OPENAI_API_KEY"),
+			Model:   os.Getenv("OPENAI_MODEL"),
+			BaseURL: os.Getenv("OPENAI_BASE_URL"),
+		})
+	}
+	return openai.NewChatModel(ctx, &openai.ChatModelConfig{
+		APIKey:  os.Getenv("OPENAI_API_KEY"),
+		Model:   os.Getenv("OPENAI_MODEL"),
+		BaseURL: os.Getenv("OPENAI_BASE_URL"),
+		ByAzure: os.Getenv("OPENAI_BY_AZURE") == "true",
 	})
+}
+
+func NewOpenAIModel(ctx context.Context) (*OpenAIModel, error) {
+	llm, err := newChatModel(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("create openai model failed: %v", err)
+		return nil, fmt.Errorf("create AI model failed: %v", err)
 	}
 	return &OpenAIModel{llm: llm}, nil
 }
@@ -57,9 +65,7 @@ func (o *OpenAIModel) StreamResponse(ctx context.Context, messages []*schema.Mes
 		return "", fmt.Errorf("openai stream failed: %v", err)
 	}
 	defer stream.Close()
-
 	var fullResp strings.Builder
-
 	for {
 		msg, err := stream.Recv()
 		if err == io.EOF {
@@ -70,19 +76,14 @@ func (o *OpenAIModel) StreamResponse(ctx context.Context, messages []*schema.Mes
 		}
 		if len(msg.Content) > 0 {
 			fullResp.WriteString(msg.Content) // 聚合
-			
 			cb(msg.Content)                   // 实时调用cb函数，方便主动发送给前端
 		}
 	}
-
 	return fullResp.String(), nil //返回完整内容，方便后续存储
 }
 
 func (o *OpenAIModel) GetModelType() string { return "openai" }
 
-// =================== Ollama 实现 ===================
-
-// OllamaModel Ollama模型实现
 type OllamaModel struct {
 	llm model.ToolCallingChatModel
 }
@@ -122,11 +123,11 @@ func (o *OllamaModel) StreamResponse(ctx context.Context, messages []*schema.Mes
 			return "", fmt.Errorf("openai stream recv failed: %v", err)
 		}
 		if len(msg.Content) > 0 {
-			fullResp.WriteString(msg.Content) // 聚合
-			cb(msg.Content)                   // 实时调用cb函数，方便主动发送给前端
+			fullResp.WriteString(msg.Content)
+			cb(msg.Content)
 		}
 	}
-	return fullResp.String(), nil //返回完整内容，方便后续存储
+	return fullResp.String(), nil
 }
 
 func (o *OllamaModel) GetModelType() string { return "ollama" }

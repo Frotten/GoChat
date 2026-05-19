@@ -150,7 +150,8 @@ export default {
         }
       } catch (error) {
         console.error('Send code error:', error)
-        ElMessage.error('验证码发送失败，请重试')
+        const msg = error.response?.data?.status_msg
+        ElMessage.error(msg || '验证码发送失败：请确认后端已启动(9090)且 Redis 可连接')
       } finally {
         codeLoading.value = false
       }

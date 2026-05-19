@@ -23,10 +23,6 @@
       <div class="top-bar">
         <button class="back-btn" @click="$router.push('/menu')">← 返回</button>
         <button class="sync-btn" @click="syncHistory" :disabled="!currentSessionId || tempSession">同步历史数据</button>
-        <label for="modelType">选择模型：</label>
-        <select id="modelType" v-model="selectedModel" class="model-select">
-          <option value="1">阿里百炼</option>
-        </select>
         <label for="streamingMode" style="margin-left: 20px;">
           <input type="checkbox" id="streamingMode" v-model="isStreaming" />
           流式响应
@@ -41,7 +37,6 @@
         >
           <div class="message-header">
             <b>{{ message.role === 'user' ? '你' : 'AI' }}:</b>
-            <button v-if="message.role === 'assistant'" class="tts-btn" @click="playTTS(message.content)">🔊</button>
             <span v-if="message.meta && message.meta.status === 'streaming'" class="streaming-indicator"> ··</span>
           </div>
           <div class="message-content" v-html="renderMarkdown(message.content)"></div>
@@ -89,7 +84,6 @@ export default {
     const loading = ref(false)
     const messagesRef = ref(null)
     const messageInput = ref(null)
-    const selectedModel = ref('1')
     const isStreaming = ref(false)
 
 
@@ -100,21 +94,6 @@ export default {
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
         .replace(/`(.*?)`/g, '<code>$1</code>')
         .replace(/\n/g, '<br>')
-    }
-
-    const playTTS = async (text) => {
-      try {
-        const response = await api.post('/chat/tts', { text })
-        if (response.data && response.data.status_code === 1000 && response.data.url) {
-          const audio = new Audio(response.data.url)
-          audio.play()
-        } else {
-          ElMessage.error('无法获取语音')
-        }
-      } catch (error) {
-        console.error('TTS error:', error)
-        ElMessage.error('请求语音接口失败')
-      }
     }
 
     const loadSessions = async () => {
@@ -275,8 +254,8 @@ export default {
       }
 
       const body = tempSession.value
-        ? { question: question, modelType: selectedModel.value }
-        : { question: question, modelType: selectedModel.value, sessionId: currentSessionId.value }
+        ? { question: question }
+        : { question: question, sessionId: currentSessionId.value }
 
       try {
         // 创建 fetch 连接读取 SSE 流
@@ -396,8 +375,7 @@ export default {
       if (tempSession.value) {
 
         const response = await api.post('/AI/chat/send-new-session', {
-          question: question,
-          modelType: selectedModel.value
+          question: question
         })
         if (response.data && response.data.status_code === 1000) {
           const sessionId = String(response.data.sessionId)
@@ -427,7 +405,6 @@ export default {
 
         const response = await api.post('/AI/chat/send', {
           question: question,
-          modelType: selectedModel.value,
           sessionId: currentSessionId.value
         })
         if (response.data && response.data.status_code === 1000) {
@@ -467,10 +444,8 @@ export default {
       loading,
       messagesRef,
       messageInput,
-      selectedModel,
       isStreaming,
       renderMarkdown,
-      playTTS,
       createNewSession,
       switchSession,
       syncHistory,
@@ -768,23 +743,6 @@ export default {
 
 .message-header b {
   font-weight: 600;
-}
-
-.tts-btn {
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 12px;
-  cursor: pointer;
-  background: linear-gradient(135deg, #67c23a 0%, #409eff 100%);
-  color: white;
-  border: none;
-  transition: all 0.18s ease;
-  box-shadow: 0 2px 8px rgba(103, 194, 58, 0.18);
-}
-
-.tts-btn:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(103, 194, 58, 0.25);
 }
 
 .streaming-indicator {

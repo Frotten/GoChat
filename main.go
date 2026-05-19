@@ -4,23 +4,23 @@ import (
 	"GopherAI/common/aihelper"
 	"GopherAI/common/mysql"
 	"GopherAI/common/rabbitmq"
+	"GopherAI/common/rag"
 	"GopherAI/common/redis"
 	"GopherAI/config"
 	"GopherAI/dao/message"
 	"GopherAI/router"
+	"context"
 	"fmt"
 	"log"
 
 	"github.com/joho/godotenv"
 )
 
-func StartServer(addr string, port int) error {
-	r := router.InitRouter()
-	return r.Run(fmt.Sprintf("%s:%d", addr, port))
-}
-
 func init() {
-	godotenv.Load()
+	err := godotenv.Load("Env.env")
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 }
 
 // 从数据库加载消息并初始化 AIHelperManager
@@ -34,21 +34,14 @@ func readDataFromDB() error {
 	// 遍历数据库消息
 	for i := range msgs {
 		m := &msgs[i]
-		//默认openai模型
-		modelType := "1"
-		configs := make(map[string]interface{})
-
-		// 创建对应的 AIHelper
-		helper, err := manager.GetOrCreateAIHelper(m.UserName, m.SessionID, modelType, configs)
+		helper, err := manager.GetOrCreateAIHelper(m.UserName, m.SessionID)
 		if err != nil {
 			log.Printf("[readDataFromDB] failed to create helper for user=%s session=%s: %v", m.UserName, m.SessionID, err)
 			continue
 		}
 		log.Println("readDataFromDB init:  ", helper.SessionID)
-		// 添加消息到内存中(不开启存储功能)
 		helper.AddMessage(m.Content, m.UserName, m.IsUser, false)
 	}
-
 	log.Println("AIHelperManager init success ")
 	return nil
 }
@@ -68,13 +61,23 @@ func main() {
 		return
 	}
 
+	// 索引 Info 目录知识库到 Qdrant
+	ragSvc := rag.GetService()
+	if ragSvc.Enabled() {
+		if err := ragSvc.IndexFromInfo(context.Background()); err != nil {
+			log.Printf("RAG index warning: %v", err)
+		}
+	} else {
+		log.Println("RAG disabled: configure embedding and Qdrant in Env.env to enable")
+	}
+
 	//初始化redis
 	redis.Init()
 	log.Println("redis init success  ")
 	rabbitmq.InitRabbitMQ()
 	log.Println("rabbitmq init success  ")
-
-	err = StartServer(host, port) // 启动 HTTP 服务
+	r := router.InitRouter()
+	err = r.Run(fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		panic(err)
 	}

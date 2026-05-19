@@ -20,27 +20,23 @@ func NewAIHelperManager() *AIHelperManager {
 	}
 }
 
-// 获取或创建AIHelper
-func (m *AIHelperManager) GetOrCreateAIHelper(userName string, sessionID string, modelType string, config map[string]interface{}) (*AIHelper, error) {
+// GetOrCreateAIHelper 获取或创建 AIHelper（模型由 Env.env 配置决定）
+func (m *AIHelperManager) GetOrCreateAIHelper(userName string, sessionID string) (*AIHelper, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// 获取用户的会话映射
 	userHelpers, exists := m.helpers[userName]
 	if !exists {
 		userHelpers = make(map[string]*AIHelper)
 		m.helpers[userName] = userHelpers
 	}
 
-	// 检查会话是否已存在
 	helper, exists := userHelpers[sessionID]
 	if exists {
 		return helper, nil
 	}
 
-	// 创建新的AIHelper
-	factory := GetGlobalFactory()
-	helper, err := factory.CreateAIHelper(ctx, modelType, sessionID, config)
+	helper, err := NewAIHelperFromEnv(ctx, sessionID)
 	if err != nil {
 		return nil, err
 	}

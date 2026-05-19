@@ -31,7 +31,6 @@ func InitMysql() error {
 	} else {
 		log = logger.Default
 	}
-
 	db, err := gorm.Open(mysql.New(mysql.Config{
 		DSN:                       dsn,
 		DefaultStringSize:         256,
@@ -45,7 +44,6 @@ func InitMysql() error {
 	if err != nil {
 		return err
 	}
-
 	sqlDB, err := db.DB()
 	if err != nil {
 		return err
@@ -53,9 +51,7 @@ func InitMysql() error {
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(time.Hour)
-
 	DB = db
-
 	return migration()
 }
 
