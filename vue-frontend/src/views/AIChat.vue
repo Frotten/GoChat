@@ -1,19 +1,19 @@
 <template>
   <div class="ai-chat-container">
     <!-- 左侧会话列表 -->
-    <div class="session-list">
-      <div class="session-list-header">
+    <div class="sessions-list">
+      <div class="sessions-list-header">
         <span>会话列表</span>
         <button class="new-chat-btn" @click="createNewSession">＋ 新聊天</button>
       </div>
-      <ul class="session-list-ul">
+      <ul class="sessions-list-ul">
         <li
-          v-for="session in sessions"
-          :key="session.id"
-          :class="['session-item', { active: currentSessionId === session.id }]"
-          @click="switchSession(session.id)"
+          v-for="sessions in sessions"
+          :key="sessions.id"
+          :class="['sessions-item', { active: currentSessionId === sessions.id }]"
+          @click="switchSession(sessions.id)"
         >
-          {{ session.name || `会话 ${session.id}` }}
+          {{ sessions.name || `会话 ${sessions.id}` }}
         </li>
       </ul>
     </div>
@@ -245,7 +245,7 @@ export default {
 
 
       const url = tempSession.value
-        ? '/api/AI/chat/send-stream-new-session'  
+        ? '/api/AI/chat/send-stream-new-sessions'
         : '/api/AI/chat/send-stream'           
 
       const headers = {
@@ -374,7 +374,7 @@ export default {
     async function handleNormal(question) {
       if (tempSession.value) {
 
-        const response = await api.post('/AI/chat/send-new-session', {
+        const response = await api.post('/AI/chat/send-new-sessions', {
           question: question
         })
         if (response.data && response.data.status_code === 1000) {
@@ -483,7 +483,7 @@ export default {
   50% { transform: translateY(-20px) rotate(180deg); }
 }
 
-.session-list {
+.sessions-list {
   width: 280px;
   height: 100vh;
   overflow: hidden;
@@ -497,7 +497,7 @@ export default {
   z-index: 2;
 }
 
-.session-list-header {
+.sessions-list-header {
   padding: 20px;
   text-align: center;
   font-weight: 600;
@@ -545,7 +545,7 @@ export default {
   box-shadow: 0 8px 25px rgba(102, 126, 234, 0.36);
 }
 
-.session-list-ul {
+.sessions-list-ul {
   list-style: none;
   padding: 0;
   margin: 0;
@@ -553,7 +553,7 @@ export default {
   overflow-y: auto;
 }
 
-.session-item {
+.sessions-item {
   padding: 15px 20px;
   cursor: pointer;
   border-bottom: 1px solid rgba(0, 0, 0, 0.03);
@@ -562,14 +562,14 @@ export default {
   color: #2c3e50;
 }
 
-.session-item.active {
+.sessions-item.active {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   font-weight: 600;
   box-shadow: inset 0 0 20px rgba(102, 126, 234, 0.2);
 }
 
-.session-item:hover {
+.sessions-item:hover {
   background: rgba(102, 126, 234, 0.06);
   transform: translateX(4px);
 }

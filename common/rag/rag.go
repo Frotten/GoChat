@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -42,7 +44,6 @@ func (s *Service) IndexFromInfo(ctx context.Context) error {
 	if !s.Enabled() {
 		return fmt.Errorf("RAG is not configured: set OPENAI_API_KEY, OPENAI_EMBEDDING_MODEL, QDRANT_HTTP_URL and QDRANT_COLLECTION in Env.env")
 	}
-
 	if err := os.MkdirAll(s.cfg.ProjectRoot, 0755); err != nil {
 		return fmt.Errorf("create project root: %w", err)
 	}
@@ -52,6 +53,8 @@ func (s *Service) IndexFromInfo(ctx context.Context) error {
 
 	var files []string
 	err := filepath.Walk(s.cfg.ProjectRoot, func(path string, info os.FileInfo, err error) error {
+		//匿名回调函数，filepath.Walk会遍历指定目录下的所有文件和子目录，并对每个文件或目录调用这个函数
+		//用来获取所有的.txt文件路径
 		if err != nil {
 			return err
 		}
@@ -78,6 +81,7 @@ func (s *Service) IndexFromInfo(ctx context.Context) error {
 			log.Printf("[RAG] skip %s: %v", filePath, err)
 			continue
 		}
+		//固定大小滑动窗口分割，通过字符数硬性切割，但通过重叠来弥补语义断裂的问题
 		chunks := splitText(string(data), s.cfg.ChunkSize, s.cfg.ChunkOverlap)
 		rel, _ := filepath.Rel(s.cfg.ProjectRoot, filePath)
 		for i, chunk := range chunks {
@@ -85,7 +89,7 @@ func (s *Service) IndexFromInfo(ctx context.Context) error {
 			if err != nil {
 				return fmt.Errorf("embed %s chunk %d: %w", rel, i, err)
 			}
-			pointID := fmt.Sprintf("%s-%d", strings.ReplaceAll(rel, string(filepath.Separator), "_"), i)
+			pointID := chunkPointID(rel, i)
 			point := qdrantPoint{
 				ID:     pointID,
 				Vector: vec,
@@ -129,4 +133,10 @@ func (s *Service) Retrieve(ctx context.Context, query string) string {
 		b.WriteString(fmt.Sprintf("[%d] %s\n\n", i+1, c))
 	}
 	return strings.TrimSpace(b.String())
+}
+
+// chunkPointID 生成 Qdrant 要求的 UUID（同一文件+分块索引可稳定复现，便于重复索引覆盖）
+func chunkPointID(source string, chunkIndex int) string {
+	name := fmt.Sprintf("%s:%d", source, chunkIndex)
+	return uuid.NewSHA1(uuid.NameSpaceURL, []byte(name)).String()
 }

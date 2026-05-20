@@ -24,23 +24,19 @@ func NewAIHelperManager() *AIHelperManager {
 func (m *AIHelperManager) GetOrCreateAIHelper(userName string, sessionID string) (*AIHelper, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
 	userHelpers, exists := m.helpers[userName]
 	if !exists {
 		userHelpers = make(map[string]*AIHelper)
 		m.helpers[userName] = userHelpers
 	}
-
 	helper, exists := userHelpers[sessionID]
 	if exists {
 		return helper, nil
 	}
-
 	helper, err := NewAIHelperFromEnv(ctx, sessionID)
 	if err != nil {
 		return nil, err
 	}
-
 	userHelpers[sessionID] = helper
 	return helper, nil
 }
@@ -77,18 +73,16 @@ func (m *AIHelperManager) RemoveAIHelper(userName string, sessionID string) {
 	}
 }
 
-// 获取指定用户的所有会话ID
+// GetUserSessions 获取指定用户的所有会话ID
 func (m *AIHelperManager) GetUserSessions(userName string) []string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-
 	userHelpers, exists := m.helpers[userName]
 	if !exists {
 		return []string{}
 	}
 
 	sessionIDs := make([]string, 0, len(userHelpers))
-	//取出所有的key
 	for sessionID := range userHelpers {
 		sessionIDs = append(sessionIDs, sessionID)
 	}
@@ -96,11 +90,9 @@ func (m *AIHelperManager) GetUserSessions(userName string) []string {
 	return sessionIDs
 }
 
-// 全局管理器实例
 var globalManager *AIHelperManager
 var once sync.Once
 
-// GetGlobalManager 获取全局管理器实例
 func GetGlobalManager() *AIHelperManager {
 	once.Do(func() {
 		globalManager = NewAIHelperManager()

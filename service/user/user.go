@@ -58,13 +58,11 @@ func SendCaptcha(email_ string) code.Code {
 		log.Printf("[captcha] Redis 写入失败: %v", err)
 		return code.CodeServerBusy
 	}
-
-	if strings.EqualFold(os.Getenv("CAPTCHA_DEV_MODE"), "true") {
+	if strings.EqualFold(os.Getenv("CAPTCHA_DEV_MODE"), "true") { //本地开发
 		log.Printf("[captcha] DEV 模式 邮箱=%s 验证码=%s（2分钟内有效）", email_, sendCode)
 		return code.CodeSuccess
 	}
-
-	if err := myemail.SendCaptcha(email_, sendCode, myemail.CodeMsg); err != nil {
+	if err := myemail.SendCaptcha(email_, sendCode, myemail.CodeMsg); err != nil { //线上发送
 		log.Printf("[captcha] 邮件发送失败: %v", err)
 		return code.CodeServerBusy
 	}

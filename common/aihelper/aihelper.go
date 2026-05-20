@@ -37,7 +37,7 @@ func NewAIHelper(model_ AIModel, SessionID string) *AIHelper {
 	}
 }
 
-// addMessage 添加消息到内存中并调用自定义存储函数
+// AddMessage 添加消息到内存中并调用自定义存储函数
 func (a *AIHelper) AddMessage(Content string, UserName string, IsUser bool, Save bool) {
 	userMsg := model.Message{
 		SessionID: a.SessionID,
@@ -108,14 +108,12 @@ func (a *AIHelper) GenerateResponse(userName string, ctx context.Context, userQu
 	return modelMsg, nil
 }
 
-// 流式生成
+// StreamResponse 流式生成
 func (a *AIHelper) StreamResponse(userName string, ctx context.Context, cb StreamCallback, userQuestion string) (*model.Message, error) {
 
 	//调用存储函数
 	a.AddMessage(userQuestion, userName, true, true)
-
 	messages := a.buildMessagesWithRAG(ctx, userQuestion)
-
 	content, err := a.model.StreamResponse(ctx, messages, cb)
 	if err != nil {
 		return nil, err

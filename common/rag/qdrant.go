@@ -25,7 +25,7 @@ func NewQdrantClient(cfg Config) *QdrantClient {
 }
 
 func (q *QdrantClient) EnsureCollection(ctx context.Context) error {
-	url := fmt.Sprintf("%s/collections/%s", q.cfg.QdrantURL, q.cfg.Collection)
+	url := q.cfg.QdrantURL + "/collections/" + q.cfg.Collection
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -39,7 +39,7 @@ func (q *QdrantClient) EnsureCollection(ctx context.Context) error {
 		return nil
 	}
 
-	createBody := map[string]interface{}{
+	createBody := map[string]interface{}{ //检查到集合不存在，开始创建
 		"vectors": map[string]interface{}{
 			"size":     q.cfg.EmbeddingDim,
 			"distance": "Cosine",
@@ -78,7 +78,7 @@ func (q *QdrantClient) Upsert(ctx context.Context, points []qdrantPoint) error {
 	if err != nil {
 		return err
 	}
-	url := fmt.Sprintf("%s/collections/%s/points?wait=true", q.cfg.QdrantURL, q.cfg.Collection)
+	url := q.cfg.QdrantURL + "/collections/" + q.cfg.Collection + "/points?wait=true"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(data))
 	if err != nil {
 		return err
@@ -113,7 +113,7 @@ func (q *QdrantClient) Search(ctx context.Context, vector []float32, limit int) 
 	if err != nil {
 		return nil, err
 	}
-	url := fmt.Sprintf("%s/collections/%s/points/search", q.cfg.QdrantURL, q.cfg.Collection)
+	url := q.cfg.QdrantURL + "/collections/" + q.cfg.Collection + "/points/search"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(data))
 	if err != nil {
 		return nil, err

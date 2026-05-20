@@ -17,16 +17,13 @@ var ctx = context.Background()
 func GetUserSessionsByUserName(userName string) ([]model.SessionInfo, error) {
 	manager := aihelper.GetGlobalManager()
 	Sessions := manager.GetUserSessions(userName)
-
 	var SessionInfos []model.SessionInfo
-
-	for _, session := range Sessions {
+	for _, sessions := range Sessions {
 		SessionInfos = append(SessionInfos, model.SessionInfo{
-			SessionID: session,
-			Title:     session,
+			SessionID: sessions,
+			Title:     sessions,
 		})
 	}
-
 	return SessionInfos, nil
 }
 
@@ -41,14 +38,12 @@ func CreateSessionAndSendMessage(userName string, userQuestion string) (string, 
 		log.Println("CreateSessionAndSendMessage CreateSession error:", err)
 		return "", "", code.CodeServerBusy
 	}
-
 	manager := aihelper.GetGlobalManager()
 	helper, err := manager.GetOrCreateAIHelper(userName, createdSession.ID)
 	if err != nil {
 		log.Println("CreateSessionAndSendMessage GetOrCreateAIHelper error:", err)
 		return "", "", code.AIModelFail
 	}
-
 	aiResponse, err_ := helper.GenerateResponse(userName, ctx, userQuestion)
 	if err_ != nil {
 		log.Println("CreateSessionAndSendMessage GenerateResponse error:", err_)

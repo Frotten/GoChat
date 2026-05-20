@@ -48,13 +48,11 @@ type (
 func GetUserSessionsByUserName(c *gin.Context) {
 	res := new(GetUserSessionsResponse)
 	userName := c.GetString("userName")
-
 	userSessions, err := session.GetUserSessionsByUserName(userName)
 	if err != nil {
 		c.JSON(http.StatusOK, res.CodeOf(code.CodeServerBusy))
 		return
 	}
-
 	res.Success()
 	res.Sessions = userSessions
 	c.JSON(http.StatusOK, res)
