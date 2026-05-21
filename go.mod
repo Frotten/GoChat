@@ -6,7 +6,7 @@ toolchain go1.24.9
 
 require (
 	github.com/BurntSushi/toml v1.5.0
-	github.com/cloudwego/eino v0.7.13
+	github.com/cloudwego/eino v0.8.13
 	github.com/cloudwego/eino-ext/components/model/ark v0.1.68
 	github.com/cloudwego/eino-ext/components/model/ollama v0.1.5
 	github.com/cloudwego/eino-ext/components/model/openai v0.1.2

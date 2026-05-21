@@ -11,6 +11,9 @@ import (
 	"github.com/cloudwego/eino-ext/components/model/ollama"
 	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/compose"
+	"github.com/cloudwego/eino/flow/agent/react"
 	"github.com/cloudwego/eino/schema"
 )
 
@@ -24,7 +27,11 @@ type AIModel interface {
 }
 
 type OpenAIModel struct {
-	llm model.ToolCallingChatModel
+	llm react.Agent
+}
+
+type OllamaModel struct {
+	llm react.Agent
 }
 
 func newChatModel(ctx context.Context) (model.ToolCallingChatModel, error) {
@@ -33,6 +40,11 @@ func newChatModel(ctx context.Context) (model.ToolCallingChatModel, error) {
 			APIKey:  os.Getenv("OPENAI_API_KEY"),
 			Model:   os.Getenv("OPENAI_MODEL"),
 			BaseURL: os.Getenv("OPENAI_BASE_URL"),
+		})
+	} else if strings.ToLower(strings.TrimSpace(os.Getenv("OPENAI_TYPE"))) == "ollama" {
+		return ollama.NewChatModel(ctx, &ollama.ChatModelConfig{
+			Model:   os.Getenv("OLLAMA_MODEL"),
+			BaseURL: os.Getenv("OLLAMA_BASE_URL"),
 		})
 	}
 	return openai.NewChatModel(ctx, &openai.ChatModelConfig{
@@ -43,12 +55,49 @@ func newChatModel(ctx context.Context) (model.ToolCallingChatModel, error) {
 	})
 }
 
+func llmToAgent(llm model.ToolCallingChatModel) *react.Agent {
+	agent, err := react.NewAgent(ctx, &react.AgentConfig{
+		ToolCallingModel: llm,
+
+		ToolsConfig: compose.ToolsNodeConfig{
+			Tools: []tool.BaseTool{
+				&GetCurrentTimeTool{},
+				&ReadFileTool{},
+			},
+		},
+		MaxStep: 10,
+	})
+	if err != nil {
+		return nil
+	}
+	return agent
+}
+
 func NewOpenAIModel(ctx context.Context) (*OpenAIModel, error) {
 	llm, err := newChatModel(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("create AI model failed: %v", err)
 	}
-	return &OpenAIModel{llm: llm}, nil
+	agent := llmToAgent(llm)
+	if agent == nil {
+		return nil, fmt.Errorf("create agent failed")
+	}
+	return &OpenAIModel{llm: *agent}, nil
+}
+
+func NewOllamaModel(ctx context.Context, baseURL, modelName string) (*OpenAIModel, error) {
+	llm, err := ollama.NewChatModel(ctx, &ollama.ChatModelConfig{
+		BaseURL: baseURL,
+		Model:   modelName,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create ollama model failed: %v", err)
+	}
+	agent := llmToAgent(llm)
+	if agent == nil {
+		return nil, fmt.Errorf("create agent failed")
+	}
+	return &OpenAIModel{llm: *agent}, nil
 }
 
 func (o *OpenAIModel) GenerateResponse(ctx context.Context, messages []*schema.Message) (*schema.Message, error) {
@@ -83,21 +132,6 @@ func (o *OpenAIModel) StreamResponse(ctx context.Context, messages []*schema.Mes
 }
 
 func (o *OpenAIModel) GetModelType() string { return "openai" }
-
-type OllamaModel struct {
-	llm model.ToolCallingChatModel
-}
-
-func NewOllamaModel(ctx context.Context, baseURL, modelName string) (*OllamaModel, error) {
-	llm, err := ollama.NewChatModel(ctx, &ollama.ChatModelConfig{
-		BaseURL: baseURL,
-		Model:   modelName,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("create ollama model failed: %v", err)
-	}
-	return &OllamaModel{llm: llm}, nil
-}
 
 func (o *OllamaModel) GenerateResponse(ctx context.Context, messages []*schema.Message) (*schema.Message, error) {
 	resp, err := o.llm.Generate(ctx, messages)

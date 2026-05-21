@@ -78,7 +78,8 @@ func (a *AIHelper) buildMessagesWithRAG(ctx context.Context, userQuestion string
 	systemMsg := &schema.Message{
 		Role: schema.System,
 		Content: fmt.Sprintf(
-			"你是智能助手。请优先根据以下参考资料回答用户问题；若资料中没有相关内容，请明确说明并基于常识谨慎回答，不要编造事实。\n\n参考资料：\n%s",
+			"你是智能助手。请优先根据以下参考资料回答用户问题；若资料中没有相关内容，请明确说明并基于常识谨慎回答，不要编造事实，不要输出自己不了解的信息，"+
+				"如果有可用工具，可以尝试使用工具来获取信息，但不要编造没有的数据。\n\n参考资料：\n%s",
 			contextText,
 		),
 	}
