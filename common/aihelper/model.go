@@ -62,11 +62,11 @@ func llmToAgent(llm model.ToolCallingChatModel) *react.Agent {
 		ToolsConfig: compose.ToolsNodeConfig{
 			Tools: []tool.BaseTool{
 				&GetCurrentTimeTool{},
-				&SearchFileTool{},
+				&SearchFilesTool{},
 				&ReadFileTool{},
 			},
 		},
-		MaxStep: 10,
+		MaxStep: 6,
 	})
 	if err != nil {
 		return nil

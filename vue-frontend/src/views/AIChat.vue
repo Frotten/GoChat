@@ -268,7 +268,7 @@ export default {
 
 
       const url = tempSession.value
-        ? '/api/AI/chat/send-stream-new-sessions'
+        ? '/api/AI/chat/send-stream-new-session'
         : '/api/AI/chat/send-stream'           
 
       const headers = {
@@ -397,7 +397,7 @@ export default {
     async function handleNormal(question) {
       if (tempSession.value) {
 
-        const response = await api.post('/AI/chat/send-new-sessions', {
+        const response = await api.post('/AI/chat/send-new-session', {
           question: question
         })
         if (response.data && response.data.status_code === 1000) {

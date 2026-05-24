@@ -71,15 +71,24 @@ func (a *AIHelper) buildMessagesWithRAG(ctx context.Context, userQuestion string
 	messages := utils.ConvertToSchemaMessages(a.messages)
 	a.mu.RUnlock()
 
+	toolHint := &schema.Message{
+		Role: schema.System,
+		Content: "你是智能助手，可以帮助用户解决各方面的问题。涉及文件时严格按以下流程：" +
+			"1) 先调用 search_files(keyword) 获取真实文件列表；" +
+			"2) 从返回的 files 中选择一项；" +
+			"3) 将选中项的 path 原样传给 read_file(file_path)。" +
+			"禁止猜测文件名或路径。若 search_files 无结果或 read_file 返回 retry=false，不要重复调用 read_file，应更换关键词、告知用户或基于已有信息回答。",
+	}
+
 	contextText := rag.GetService().Retrieve(ctx, userQuestion)
 	if contextText == "" {
-		return messages
+		return append([]*schema.Message{toolHint}, messages...)
 	}
 	systemMsg := &schema.Message{
 		Role: schema.System,
 		Content: fmt.Sprintf(
-			"你是智能助手。请优先根据以下参考资料回答用户问题；若资料中没有相关内容，请明确说明并基于常识谨慎回答，不要编造事实，不要输出自己不了解的信息，"+
-				"如果有可用工具，可以尝试使用工具来获取信息，但不要编造没有的数据。\n\n参考资料：\n%s",
+			"你是智能助手。请优先根据以下参考资料回答用户问题；若资料中没有相关内容，请明确说明并基于常识谨慎回答，不要编造事实。"+
+				"涉及文件时：先 search_files → 从列表选 path → read_file(file_path)；禁止猜测路径；read_file 失败且 retry=false 时不要重试。\n\n参考资料：\n%s",
 			contextText,
 		),
 	}
