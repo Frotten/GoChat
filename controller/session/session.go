@@ -166,3 +166,19 @@ func ChatHistory(c *gin.Context) {
 	res.History = history
 	c.JSON(http.StatusOK, res)
 }
+
+func DeleteChatSession(c *gin.Context) {
+	req := new(ChatHistoryRequest)
+	res := new(controller.Response)
+	userName := c.GetString("userName")
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(http.StatusOK, res.CodeOf(code.CodeInvalidParams))
+		return
+	}
+	if code_ := session.DeleteChatSession(userName, req.SessionID); code_ != code.CodeSuccess {
+		c.JSON(http.StatusOK, res.CodeOf(code_))
+		return
+	}
+	res.Success()
+	c.JSON(http.StatusOK, res)
+}

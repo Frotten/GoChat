@@ -27,6 +27,9 @@ charset =  "utf8mb4"
  subject= "GoAI"
  key= "GoAI"
 
+[fileConfig]
+  base_path = "D:/Code/GoCode/GoAI"
+
  [rabbitmqConfig]
   host= "192.168.56.101"
   port= 5672

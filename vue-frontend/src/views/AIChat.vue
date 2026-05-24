@@ -13,7 +13,8 @@
           :class="['sessions-item', { active: currentSessionId === sessions.id }]"
           @click="switchSession(sessions.id)"
         >
-          {{ sessions.name || `会话 ${sessions.id}` }}
+          <span class="session-title">{{ sessions.name || `会话 ${sessions.id}` }}</span>
+          <button class="delete-session-btn" @click.stop="deleteSession(sessions.id)" title="删除会话">×</button>
         </li>
       </ul>
     </div>
@@ -178,6 +179,28 @@ export default {
       }
     }
 
+    const deleteSession = async (sessionId) => {
+      if (!sessionId) return
+      if (!window.confirm('确定删除该会话吗？')) return
+      try {
+        const response = await api.post('/AI/chat/delete-session', { sessionId })
+        if (response.data && response.data.status_code === 1000) {
+          delete sessions.value[sessionId]
+          sessions.value = { ...sessions.value }
+          if (currentSessionId.value === sessionId) {
+            currentSessionId.value = null
+            currentMessages.value = []
+            tempSession.value = false
+          }
+          ElMessage.success('会话已删除')
+        } else {
+          ElMessage.error(response.data?.status_msg || '删除失败')
+        }
+      } catch (err) {
+        console.error('Delete session error:', err)
+        ElMessage.error('删除会话失败')
+      }
+    }
 
     const sendMessage = async () => {
       if (!inputMessage.value || !inputMessage.value.trim()) {
@@ -449,7 +472,8 @@ export default {
       createNewSession,
       switchSession,
       syncHistory,
-      sendMessage
+      sendMessage,
+      deleteSession
     }
   }
 }
@@ -560,6 +584,41 @@ export default {
   transition: all 0.2s ease;
   position: relative;
   color: #2c3e50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.session-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.delete-session-btn {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.06);
+  color: #666;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+}
+
+.delete-session-btn:hover {
+  background: rgba(245, 108, 108, 0.2);
+  color: #f56c6c;
+}
+
+.sessions-item.active .delete-session-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
 }
 
 .sessions-item.active {

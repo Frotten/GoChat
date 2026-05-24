@@ -48,6 +48,10 @@ type Rabbitmq struct {
 	RabbitmqVhost    string `toml:"vhost"`
 }
 
+type FileConfig struct {
+	BasePath string `toml:"base_path"`
+}
+
 type Config struct {
 	EmailConfig `toml:"emailConfig"`
 	RedisConfig `toml:"redisConfig"`
@@ -55,6 +59,7 @@ type Config struct {
 	JwtConfig   `toml:"jwtConfig"`
 	MainConfig  `toml:"mainConfig"`
 	Rabbitmq    `toml:"rabbitmqConfig"`
+	FileConfig  `toml:"fileConfig"`
 }
 
 type RedisKeyConfig struct {

@@ -3,13 +3,16 @@ package session
 import (
 	"GopherAI/common/aihelper"
 	"GopherAI/common/code"
-	"GopherAI/dao/session"
+	"GopherAI/dao/message"
+	sessionDao "GopherAI/dao/session"
 	"GopherAI/model"
 	"context"
+	"errors"
 	"log"
 	"net/http"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 var ctx = context.Background()
@@ -33,7 +36,7 @@ func CreateSessionAndSendMessage(userName string, userQuestion string) (string, 
 		UserName: userName,
 		Title:    userQuestion,
 	}
-	createdSession, err := session.CreateSession(newSession)
+	createdSession, err := sessionDao.CreateSession(newSession)
 	if err != nil {
 		log.Println("CreateSessionAndSendMessage CreateSession error:", err)
 		return "", "", code.CodeServerBusy
@@ -59,7 +62,7 @@ func CreateStreamSessionOnly(userName string, userQuestion string) (string, code
 		UserName: userName,
 		Title:    userQuestion,
 	}
-	createdSession, err := session.CreateSession(newSession)
+	createdSession, err := sessionDao.CreateSession(newSession)
 	if err != nil {
 		log.Println("CreateStreamSessionOnly CreateSession error:", err)
 		return "", code.CodeServerBusy
@@ -160,4 +163,28 @@ func GetChatHistory(userName string, sessionID string) ([]model.History, code.Co
 
 func ChatStreamSend(userName string, sessionID string, userQuestion string, writer http.ResponseWriter) code.Code {
 	return StreamMessageToExistingSession(userName, sessionID, userQuestion, writer)
+}
+
+func DeleteChatSession(userName, sessionID string) code.Code {
+	s, err := sessionDao.GetSessionByID(sessionID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return code.CodeRecordNotFound
+		}
+		log.Println("DeleteChatSession GetSessionByID error:", err)
+		return code.CodeServerBusy
+	}
+	if s.UserName != userName {
+		return code.CodeForbidden
+	}
+	if err := message.DeleteMessagesBySessionID(sessionID); err != nil {
+		log.Println("DeleteChatSession DeleteMessagesBySessionID error:", err)
+		return code.CodeServerBusy
+	}
+	if err := sessionDao.DeleteSessionByUser(sessionID, userName); err != nil {
+		log.Println("DeleteChatSession DeleteSessionByUser error:", err)
+		return code.CodeServerBusy
+	}
+	aihelper.GetGlobalManager().RemoveAIHelper(userName, sessionID)
+	return code.CodeSuccess
 }

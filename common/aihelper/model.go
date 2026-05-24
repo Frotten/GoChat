@@ -62,6 +62,7 @@ func llmToAgent(llm model.ToolCallingChatModel) *react.Agent {
 		ToolsConfig: compose.ToolsNodeConfig{
 			Tools: []tool.BaseTool{
 				&GetCurrentTimeTool{},
+				&SearchFileTool{},
 				&ReadFileTool{},
 			},
 		},

@@ -25,6 +25,10 @@ func CreateMessage(message *model.Message) (*model.Message, error) {
 	return message, err
 }
 
+func DeleteMessagesBySessionID(sessionID string) error {
+	return mysql.DB.Where("session_id = ?", sessionID).Delete(&model.Message{}).Error
+}
+
 func GetAllMessages() ([]model.Message, error) {
 	var msgs []model.Message
 	err := mysql.DB.Order("created_at asc").Find(&msgs).Error

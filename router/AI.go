@@ -13,6 +13,7 @@ func AIRouter(r *gin.RouterGroup) {
 		r.POST("/chat/send-new-session", session.CreateSessionAndSendMessage)
 		r.POST("/chat/send", session.ChatSend)
 		r.POST("/chat/history", session.ChatHistory)
+		r.POST("/chat/delete-session", session.DeleteChatSession)
 		r.POST("/chat/send-stream-new-session", session.CreateStreamSessionAndSendMessage)
 		r.POST("/chat/send-stream", session.ChatStreamSend)
 	}

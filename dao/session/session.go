@@ -21,3 +21,7 @@ func GetSessionByID(sessionID string) (*model.Session, error) {
 	err := mysql.DB.Where("id = ?", sessionID).First(&session).Error
 	return &session, err
 }
+
+func DeleteSessionByUser(sessionID, userName string) error {
+	return mysql.DB.Where("id = ? AND user_name = ?", sessionID, userName).Delete(&model.Session{}).Error
+}
