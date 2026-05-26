@@ -50,6 +50,7 @@ type Rabbitmq struct {
 
 type FileConfig struct {
 	BasePath string `toml:"base_path"`
+	WorkPath string `toml:"work_path"`
 }
 
 type Config struct {

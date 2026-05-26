@@ -77,7 +77,9 @@ func (a *AIHelper) buildMessagesWithRAG(ctx context.Context, userQuestion string
 			"1) 先调用 search_files(keyword) 获取真实文件列表；" +
 			"2) 从返回的 files 中选择一项；" +
 			"3) 将选中项的 path 原样传给 read_file(file_path)。" +
-			"禁止猜测文件名或路径。若 search_files 无结果或 read_file 返回 retry=false，不要重复调用 read_file，应更换关键词、告知用户或基于已有信息回答。",
+			"禁止猜测文件名或路径。若 search_files 无结果或 read_file 返回 retry=false，不要重复调用 read_file，应更换关键词、告知用户或基于已有信息回答。" +
+			"在编写代码时，请务必遵守以下规则：" +
+			"1) 必须使用markdown code block格式返回代码",
 	}
 
 	contextText := rag.GetService().Retrieve(ctx, userQuestion)

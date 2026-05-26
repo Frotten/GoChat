@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"go/format"
 	"io"
 	"os"
 	"path/filepath"
@@ -17,6 +18,14 @@ import (
 
 const maxFileReadBytes = 32 * 1024
 
+func GoFmt(code string) (string, error) {
+	buf, err := format.Source([]byte(code))
+	if err != nil {
+		return "", err
+	}
+	return string(buf), nil
+}
+
 func fileBasePath() (string, error) {
 	base := strings.TrimSpace(config.GetConfig().FileConfig.BasePath)
 	if base == "" {
@@ -25,24 +34,29 @@ func fileBasePath() (string, error) {
 	return filepath.Abs(base)
 }
 
-func resolveSafeFilePath(input string) (string, error) {
-	base, err := fileBasePath()
+func fileWorkPath() (string, error) {
+	base := strings.TrimSpace(config.GetConfig().FileConfig.WorkPath)
+	if base == "" {
+		return "", fmt.Errorf("文件工作目录未配置")
+	}
+	return filepath.Abs(base)
+}
+
+func resolveSafeFilePath(input string, PathFunc func() (string, error)) (string, error) {
+	base, err := PathFunc()
 	if err != nil {
 		return "", err
 	}
-
 	input = strings.TrimSpace(strings.ReplaceAll(input, "\\", "/"))
 	if input == "" {
 		return "", fmt.Errorf("file_path 不能为空")
 	}
-
 	var candidate string
 	if filepath.IsAbs(input) {
 		candidate = filepath.Clean(input)
 	} else {
 		candidate = filepath.Clean(filepath.Join(base, filepath.FromSlash(input)))
 	}
-
 	abs, err := filepath.Abs(candidate)
 	if err != nil {
 		return "", err
@@ -235,7 +249,7 @@ func (t *ReadFileTool) InvokableRun(ctx context.Context, argumentsInJSON string,
 		return toolNoRetry("参数解析失败，请使用 search_files 返回的 file_path"), nil
 	}
 
-	path, err := resolveSafeFilePath(args.FilePath)
+	path, err := resolveSafeFilePath(args.FilePath, fileBasePath)
 	if err != nil {
 		return toolNoRetry(fmt.Sprintf("路径无效: %v。不要重试 read_file，请重新调用 search_files 获取真实路径", err)), nil
 	}
@@ -277,5 +291,114 @@ func (t *ReadFileTool) InvokableRun(ctx context.Context, argumentsInJSON string,
 		"success": true,
 		"path":    filepath.ToSlash(args.FilePath),
 		"content": content,
+	}), nil
+}
+
+type CreateFileTool struct{}
+
+type CreateFileParams struct {
+	Title string `json:"title"`
+}
+
+func (t *CreateFileTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
+	return &schema.ToolInfo{
+		Name: "create_file",
+		Desc: "创建新文件，返回文件路径。title 仅作为文件名使用，禁止包含路径分隔符，文件会被创建在工作目录下",
+		ParamsOneOf: schema.NewParamsOneOfByParams(
+			map[string]*schema.ParameterInfo{
+				"title": {
+					Type:     schema.String,
+					Desc:     "文件标题，例如 MyNote.txt，禁止包含路径分隔符",
+					Required: true,
+				},
+			},
+		),
+	}, nil
+}
+
+func (t *CreateFileTool) InvokableRun(ctx context.Context, argumentsInJSON string, opts ...tool.Option) (string, error) {
+	var args CreateFileParams
+	if err := json.Unmarshal([]byte(argumentsInJSON), &args); err != nil {
+		return toolNoRetry("参数解析失败，请检查 title 字段"), nil
+	}
+	title := strings.TrimSpace(args.Title)
+	if title == "" {
+		return toolNoRetry("title 不能为空"), nil
+	}
+	if strings.ContainsAny(title, `\/`) {
+		return toolNoRetry("title 不能包含路径分隔符"), nil
+	}
+	base, err := fileWorkPath()
+	if err != nil {
+		return toolNoRetry(err.Error()), nil
+	}
+
+	newPath := filepath.Join(base, title)
+	if _, err := os.Stat(newPath); err == nil {
+		return toolNoRetry("文件已存在，请更换 title"), nil
+	} else if !os.IsNotExist(err) {
+		return toolNoRetry(fmt.Sprintf("无法访问文件系统: %v", err)), nil
+	}
+
+	file, err := os.Create(newPath)
+	if err != nil {
+		return toolNoRetry(fmt.Sprintf("创建文件失败: %v", err)), nil
+	}
+	_ = file.Close()
+	rel, _ := filepath.Rel(base, newPath)
+	return toolJSONResult(map[string]interface{}{
+		"success": true,
+		"path":    filepath.ToSlash(rel),
+	}), nil
+}
+
+type EditFileTool struct{}
+
+type EditFileParams struct {
+	FilePath string `json:"file_path"`
+	Content  string `json:"content"`
+}
+
+func (t *EditFileTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
+	return &schema.ToolInfo{
+		Name: "edit_file",
+		Desc: "编辑文件，覆盖写入 content 到 file_path 指定的文件中。file_path 必须是 search_files 返回的路径或 create_file 创建的路径，禁止猜测路径",
+		ParamsOneOf: schema.NewParamsOneOfByParams(
+			map[string]*schema.ParameterInfo{
+				"file_path": {
+					Type:     schema.String,
+					Desc:     "目标文件路径，例如 Info/Note.txt，必须是 search_files 返回的路径或 create_file 创建的路径",
+					Required: true,
+				},
+				"content": {
+					Type:     schema.String,
+					Desc:     "要写入文件的内容",
+					Required: true,
+				},
+			},
+		),
+	}, nil
+}
+
+func (t *EditFileTool) InvokableRun(ctx context.Context, argumentsInJSON string, opts ...tool.Option) (string, error) {
+	var args EditFileParams
+	if err := json.Unmarshal([]byte(argumentsInJSON), &args); err != nil {
+		return toolNoRetry("参数解析失败，请检查 file_path 和 content 字段"), nil
+	}
+	path, err := resolveSafeFilePath(args.FilePath, fileWorkPath)
+	if err != nil {
+		return toolNoRetry(fmt.Sprintf("路径无效: %v。不要重试 edit_file，请重新调用 search_files 或 create_file 获取真实路径", err)), nil
+	}
+	code, err := GoFmt(args.Content)
+	if err != nil {
+		return toolNoRetry(fmt.Sprintf("代码格式化失败: %v。不要重试 edit_file，请检查 content 是否为有效 Go 代码", err)), nil
+	}
+	err = os.WriteFile(path, []byte(code), 0644)
+	if err != nil {
+		return toolNoRetry(fmt.Sprintf("写入文件失败: %v。不要重试 edit_file，请检查路径是否正确", err)), nil
+	}
+	return toolJSONResult(map[string]interface{}{
+		"success": true,
+		"path":    filepath.ToSlash(args.FilePath),
 	}), nil
 }

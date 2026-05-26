@@ -63,7 +63,9 @@ func llmToAgent(llm model.ToolCallingChatModel) *react.Agent {
 			Tools: []tool.BaseTool{
 				&GetCurrentTimeTool{},
 				&SearchFilesTool{},
+				&CreateFileTool{},
 				&ReadFileTool{},
+				&EditFileTool{},
 			},
 		},
 		MaxStep: 6,

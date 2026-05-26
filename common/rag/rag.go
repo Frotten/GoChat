@@ -61,7 +61,9 @@ func (s *Service) IndexFromInfo(ctx context.Context) error {
 		if info.IsDir() {
 			return nil
 		}
-		if strings.EqualFold(filepath.Ext(path), ".txt") {
+		if strings.EqualFold(filepath.Ext(path), ".txt") ||
+			strings.EqualFold(filepath.Ext(path), ".md") ||
+			strings.EqualFold(filepath.Ext(path), ".go") {
 			files = append(files, path)
 		}
 		return nil

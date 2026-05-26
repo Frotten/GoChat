@@ -29,6 +29,7 @@ charset =  "utf8mb4"
 
 [fileConfig]
   base_path = "D:/Code/GoCode/GoAI"
+  work_path = "D:/Code/GoCode/GoAI/work"
 
  [rabbitmqConfig]
   host= "192.168.56.101"
