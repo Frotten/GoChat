@@ -68,7 +68,7 @@ func main() {
 			log.Printf("RAG index warning: %v", err)
 		}
 	} else {
-		log.Println("RAG disabled: configure embedding and Qdrant in Env.env to enable")
+		log.Println("RAG disabled: configure OLLAMA_EMBEDDING_MODEL and Qdrant in Env.env to enable")
 	}
 
 	//初始化redis

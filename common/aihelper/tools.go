@@ -99,7 +99,7 @@ type GetCurrentTimeTool struct{}
 func (t *GetCurrentTimeTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 	return &schema.ToolInfo{
 		Name:        "get_current_time",
-		Desc:        "获取当前时间",
+		Desc:        "获取现在的时间",
 		ParamsOneOf: schema.NewParamsOneOfByParams(nil),
 	}, nil
 }

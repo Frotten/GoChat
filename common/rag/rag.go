@@ -42,7 +42,7 @@ func (s *Service) Enabled() bool {
 // IndexFromInfo 扫描 PROJECT_ROOT 下的 .txt 文件并写入 Qdrant
 func (s *Service) IndexFromInfo(ctx context.Context) error {
 	if !s.Enabled() {
-		return fmt.Errorf("RAG is not configured: set OPENAI_API_KEY, OPENAI_EMBEDDING_MODEL, QDRANT_HTTP_URL and QDRANT_COLLECTION in Env.env")
+		return fmt.Errorf("RAG is not configured: set OLLAMA_EMBEDDING_MODEL, QDRANT_HTTP_URL and QDRANT_COLLECTION in Env.env")
 	}
 	if err := os.MkdirAll(s.cfg.ProjectRoot, 0755); err != nil {
 		return fmt.Errorf("create project root: %w", err)

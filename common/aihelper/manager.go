@@ -41,7 +41,7 @@ func (m *AIHelperManager) GetOrCreateAIHelper(userName string, sessionID string)
 	return helper, nil
 }
 
-// 获取指定用户的指定会话的AIHelper
+// GetAIHelper 获取指定用户的指定会话的AIHelper
 func (m *AIHelperManager) GetAIHelper(userName string, sessionID string) (*AIHelper, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -55,7 +55,7 @@ func (m *AIHelperManager) GetAIHelper(userName string, sessionID string) (*AIHel
 	return helper, exists
 }
 
-// 移除指定用户的指定会话的AIHelper
+// RemoveAIHelper 移除指定用户的指定会话的AIHelper
 func (m *AIHelperManager) RemoveAIHelper(userName string, sessionID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

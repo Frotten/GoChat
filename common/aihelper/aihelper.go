@@ -12,6 +12,22 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
+var promoteTemplate = "你是智能助手，可以帮助用户解决各方面的问题。" +
+	"你拥有以下工具：" +
+	"1) search_files(keyword): 搜索文件" +
+	"2) read_file(file_path): 读取文件内容" +
+	"3) edit_file(file_path, content): 编辑文件内容" +
+	"4) create_file(file_path, content): 创建文件" +
+	"5) get_Current_time: 获取当前时间" +
+	"涉及文件时严格按以下流程：" +
+	"1) 先调用 search_files(keyword) 获取真实文件列表；" +
+	"2) 从返回的 files 中选择一项；" +
+	"3) 将选中项的 path 原样传给 read_file(file_path)。" +
+	"4) 在找到文件并读取后不允许直接结束对话，应在读取文件后回答用户的问题" +
+	"禁止猜测文件名或路径。若 search_files 无结果或 read_file 返回 retry=false，不要重复调用 read_file，应更换关键词、告知用户或基于已有信息回答。" +
+	"在编写代码时，请务必遵守以下规则：" +
+	"1) 必须使用markdown code block格式返回代码"
+
 // AIHelper AI助手结构体，包含消息历史和AI模型
 type AIHelper struct {
 	model    AIModel
@@ -47,11 +63,11 @@ func (a *AIHelper) AddMessage(Content string, UserName string, IsUser bool, Save
 	}
 	a.messages = append(a.messages, &userMsg)
 	if Save {
-		a.saveFunc(&userMsg)
+		_, _ = a.saveFunc(&userMsg)
 	}
 }
 
-// SaveMessage 保存消息到数据库（通过回调函数避免循环依赖）
+// SetSaveFunc 保存消息到数据库（通过回调函数避免循环依赖）
 // 通过传入func，自己调用外部的保存函数，即可支持同步异步等多种策略
 func (a *AIHelper) SetSaveFunc(saveFunc func(*model.Message) (*model.Message, error)) {
 	a.saveFunc = saveFunc
@@ -72,14 +88,8 @@ func (a *AIHelper) buildMessagesWithRAG(ctx context.Context, userQuestion string
 	a.mu.RUnlock()
 
 	toolHint := &schema.Message{
-		Role: schema.System,
-		Content: "你是智能助手，可以帮助用户解决各方面的问题。涉及文件时严格按以下流程：" +
-			"1) 先调用 search_files(keyword) 获取真实文件列表；" +
-			"2) 从返回的 files 中选择一项；" +
-			"3) 将选中项的 path 原样传给 read_file(file_path)。" +
-			"禁止猜测文件名或路径。若 search_files 无结果或 read_file 返回 retry=false，不要重复调用 read_file，应更换关键词、告知用户或基于已有信息回答。" +
-			"在编写代码时，请务必遵守以下规则：" +
-			"1) 必须使用markdown code block格式返回代码",
+		Role:    schema.System,
+		Content: promoteTemplate,
 	}
 
 	contextText := rag.GetService().Retrieve(ctx, userQuestion)
@@ -88,35 +98,22 @@ func (a *AIHelper) buildMessagesWithRAG(ctx context.Context, userQuestion string
 	}
 	systemMsg := &schema.Message{
 		Role: schema.System,
-		Content: fmt.Sprintf(
-			"你是智能助手。请优先根据以下参考资料回答用户问题；若资料中没有相关内容，请明确说明并基于常识谨慎回答，不要编造事实。"+
-				"涉及文件时：先 search_files → 从列表选 path → read_file(file_path)；禁止猜测路径；read_file 失败且 retry=false 时不要重试。\n\n参考资料：\n%s",
+		Content: fmt.Sprintf(promoteTemplate+"\n\n参考资料：\n%s",
 			contextText,
 		),
 	}
 	return append([]*schema.Message{systemMsg}, messages...)
 }
 
-// 同步生成
 func (a *AIHelper) GenerateResponse(userName string, ctx context.Context, userQuestion string) (*model.Message, error) {
-
-	//调用存储函数
 	a.AddMessage(userQuestion, userName, true, true)
-
 	messages := a.buildMessagesWithRAG(ctx, userQuestion)
-
-	//调用模型生成回复
 	schemaMsg, err := a.model.GenerateResponse(ctx, messages)
 	if err != nil {
 		return nil, err
 	}
-
-	//将schema.Message转化成model.Message
 	modelMsg := utils.ConvertToModelMessage(a.SessionID, userName, schemaMsg)
-
-	//调用存储函数
 	a.AddMessage(modelMsg.Content, userName, false, true)
-
 	return modelMsg, nil
 }
 

@@ -47,15 +47,40 @@ func newChatModel(ctx context.Context) (model.ToolCallingChatModel, error) {
 			BaseURL: os.Getenv("OLLAMA_BASE_URL"),
 		})
 	}
-	return openai.NewChatModel(ctx, &openai.ChatModelConfig{
-		APIKey:  os.Getenv("OPENAI_API_KEY"),
-		Model:   os.Getenv("OPENAI_MODEL"),
-		BaseURL: os.Getenv("OPENAI_BASE_URL"),
-		ByAzure: os.Getenv("OPENAI_BY_AZURE") == "true",
-	})
+	return openai.NewChatModel(ctx, openaiChatModelConfig())
 }
 
-func llmToAgent(llm model.ToolCallingChatModel) *react.Agent {
+// openaiChatModelConfig 构建 OpenAI 兼容客户端配置。
+// DeepSeek V4 等思考模式模型在工具多轮对话时要求回传 reasoning_content，
+// 当前 eino-openai 适配层未在第二轮请求中带回该字段，会导致 400。
+// 对 DeepSeek 端点默认关闭 thinking，以保证 ReAct 工具链可用。
+func openaiChatModelConfig() *openai.ChatModelConfig {
+	baseURL := os.Getenv("OPENAI_BASE_URL")
+	cfg := &openai.ChatModelConfig{
+		APIKey:  os.Getenv("OPENAI_API_KEY"),
+		Model:   os.Getenv("OPENAI_MODEL"),
+		BaseURL: baseURL,
+		ByAzure: os.Getenv("OPENAI_BY_AZURE") == "true",
+	}
+	if shouldDisableThinking(baseURL) {
+		cfg.ExtraFields = map[string]any{
+			"thinking": map[string]string{"type": "disabled"},
+		}
+	}
+	return cfg
+}
+
+func shouldDisableThinking(baseURL string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("OPENAI_THINKING"))) {
+	case "enabled":
+		return false
+	case "disabled":
+		return true
+	}
+	return strings.Contains(strings.ToLower(baseURL), "deepseek.com")
+}
+
+func llmToAgent(ctx context.Context, llm model.ToolCallingChatModel) *react.Agent {
 	agent, err := react.NewAgent(ctx, &react.AgentConfig{
 		ToolCallingModel: llm,
 
@@ -68,7 +93,7 @@ func llmToAgent(llm model.ToolCallingChatModel) *react.Agent {
 				&EditFileTool{},
 			},
 		},
-		MaxStep: 6,
+		MaxStep: 10,
 	})
 	if err != nil {
 		return nil
@@ -81,7 +106,7 @@ func NewOpenAIModel(ctx context.Context) (*OpenAIModel, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create AI model failed: %v", err)
 	}
-	agent := llmToAgent(llm)
+	agent := llmToAgent(ctx, llm)
 	if agent == nil {
 		return nil, fmt.Errorf("create agent failed")
 	}
@@ -96,7 +121,7 @@ func NewOllamaModel(ctx context.Context, baseURL, modelName string) (*OpenAIMode
 	if err != nil {
 		return nil, fmt.Errorf("create ollama model failed: %v", err)
 	}
-	agent := llmToAgent(llm)
+	agent := llmToAgent(ctx, llm)
 	if agent == nil {
 		return nil, fmt.Errorf("create agent failed")
 	}
@@ -106,7 +131,7 @@ func NewOllamaModel(ctx context.Context, baseURL, modelName string) (*OpenAIMode
 func (o *OpenAIModel) GenerateResponse(ctx context.Context, messages []*schema.Message) (*schema.Message, error) {
 	resp, err := o.llm.Generate(ctx, messages)
 	if err != nil {
-		return nil, fmt.Errorf("openai generate failed: %v", err)
+		return nil, fmt.Errorf("openai generate failed: %w", err)
 	}
 	return resp, nil
 }
@@ -114,7 +139,7 @@ func (o *OpenAIModel) GenerateResponse(ctx context.Context, messages []*schema.M
 func (o *OpenAIModel) StreamResponse(ctx context.Context, messages []*schema.Message, cb StreamCallback) (string, error) {
 	stream, err := o.llm.Stream(ctx, messages)
 	if err != nil {
-		return "", fmt.Errorf("openai stream failed: %v", err)
+		return "", fmt.Errorf("openai stream failed: %w", err)
 	}
 	defer stream.Close()
 	var fullResp strings.Builder
@@ -124,7 +149,7 @@ func (o *OpenAIModel) StreamResponse(ctx context.Context, messages []*schema.Mes
 			break
 		}
 		if err != nil {
-			return "", fmt.Errorf("openai stream recv failed: %v", err)
+			return "", fmt.Errorf("openai stream recv failed: %w", err)
 		}
 		if len(msg.Content) > 0 {
 			fullResp.WriteString(msg.Content) // 聚合
@@ -139,7 +164,7 @@ func (o *OpenAIModel) GetModelType() string { return "openai" }
 func (o *OllamaModel) GenerateResponse(ctx context.Context, messages []*schema.Message) (*schema.Message, error) {
 	resp, err := o.llm.Generate(ctx, messages)
 	if err != nil {
-		return nil, fmt.Errorf("ollama generate failed: %v", err)
+		return nil, fmt.Errorf("ollama generate failed: %w", err)
 	}
 	return resp, nil
 }
@@ -147,7 +172,7 @@ func (o *OllamaModel) GenerateResponse(ctx context.Context, messages []*schema.M
 func (o *OllamaModel) StreamResponse(ctx context.Context, messages []*schema.Message, cb StreamCallback) (string, error) {
 	stream, err := o.llm.Stream(ctx, messages)
 	if err != nil {
-		return "", fmt.Errorf("ollama stream failed: %v", err)
+		return "", fmt.Errorf("ollama stream failed: %w", err)
 	}
 	defer stream.Close()
 	var fullResp strings.Builder
@@ -157,7 +182,7 @@ func (o *OllamaModel) StreamResponse(ctx context.Context, messages []*schema.Mes
 			break
 		}
 		if err != nil {
-			return "", fmt.Errorf("openai stream recv failed: %v", err)
+			return "", fmt.Errorf("ollama stream recv failed: %w", err)
 		}
 		if len(msg.Content) > 0 {
 			fullResp.WriteString(msg.Content)
