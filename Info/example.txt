@@ -1,9 +1,0 @@
-GoAI 知识库示例
-
-本文件位于 Info 目录，服务启动时会自动读取所有 .txt 文件，
-分块后写入 Qdrant 向量库，供 AI 对话时 RAG 检索使用。
-
-使用说明：
-1. 将业务相关的 .txt 文档放入 Info 目录
-2. 在 Env.env 中配置 Embedding 模型与 Qdrant 连接信息
-3. 重启服务即可完成索引

@@ -140,7 +140,7 @@ func (q *QdrantClient) Search(ctx context.Context, vector []float32, limit int) 
 	chunks := make([]string, 0, len(result.Result))
 	seen := make(map[string]bool)
 	for _, hit := range result.Result {
-		if text, ok := hit.Payload["text"].(string); ok && text != "" && !seen[text] {
+		if text, ok := hit.Payload["text"].(string); ok && text != "" && !seen[text] && hit.Score > 0.7 {
 			seen[text] = true
 			chunks = append(chunks, text)
 		}

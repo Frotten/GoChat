@@ -47,7 +47,7 @@ func resolveSafeFilePath(input string, PathFunc func() (string, error)) (string,
 	if err != nil {
 		return "", err
 	}
-	input = strings.TrimSpace(strings.ReplaceAll(input, "\\", "/"))
+	input = normalizeWorkFilePath(input)
 	if input == "" {
 		return "", fmt.Errorf("file_path 不能为空")
 	}
@@ -66,6 +66,64 @@ func resolveSafeFilePath(input string, PathFunc func() (string, error)) (string,
 		return "", fmt.Errorf("不允许访问工作目录外的文件")
 	}
 	return abs, nil
+}
+
+// normalizeWorkFilePath 统一 work 目录下文件的路径表示。
+// search_files 返回 work/TempT 时，edit_file 根目录已是 work/，需去掉多余前缀。
+func normalizeWorkFilePath(input string) string {
+	input = strings.TrimSpace(strings.ReplaceAll(input, "\\", "/"))
+	for strings.HasPrefix(input, "./") {
+		input = strings.TrimPrefix(input, "./")
+	}
+	if strings.HasPrefix(strings.ToLower(input), "work/") {
+		return input[len("work/"):]
+	}
+	return input
+}
+
+func resolveReadableFilePath(input string) (string, error) {
+	input = strings.TrimSpace(strings.ReplaceAll(input, "\\", "/"))
+	if input == "" {
+		return "", fmt.Errorf("file_path 不能为空")
+	}
+	lower := strings.ToLower(input)
+	if strings.HasPrefix(lower, "info/") {
+		return resolveSafeFilePath(input, fileBasePath)
+	}
+	if path, err := resolveSafeFilePath(normalizeWorkFilePath(input), fileWorkPath); err == nil {
+		if _, statErr := os.Stat(path); statErr == nil {
+			return path, nil
+		}
+	}
+	return resolveSafeFilePath(input, fileBasePath)
+}
+
+func walkSearchRoots() ([]struct {
+	root    string
+	relBase string
+}, error) {
+	work, err := fileWorkPath()
+	if err != nil {
+		return nil, err
+	}
+	roots := []struct {
+		root    string
+		relBase string
+	}{
+		{root: work, relBase: "work"},
+	}
+	base, err := fileBasePath()
+	if err != nil {
+		return nil, err
+	}
+	infoDir := filepath.Join(base, "Info")
+	if st, statErr := os.Stat(infoDir); statErr == nil && st.IsDir() {
+		roots = append(roots, struct {
+			root    string
+			relBase string
+		}{root: infoDir, relBase: "Info"})
+	}
+	return roots, nil
 }
 
 func toolJSONResult(payload map[string]interface{}) string {
@@ -121,12 +179,12 @@ type SearchFilesParams struct {
 func (t *SearchFilesTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 	return &schema.ToolInfo{
 		Name: "search_files",
-		Desc: "根据关键词在工作目录中搜索文件（匹配文件名或文本内容），返回真实文件列表。读取文件前必须先调用此工具，不要猜测文件名。",
+		Desc: "在 work 工作目录与 Info 知识库目录中搜索文件（匹配文件名或文本内容），返回 path 列表。work 下文件 path 形如 work/TempT；Info 下形如 Info/巴别塔.txt。read_file 与 edit_file 必须原样使用该 path。",
 		ParamsOneOf: schema.NewParamsOneOfByParams(
 			map[string]*schema.ParameterInfo{
 				"keyword": {
 					Type:     schema.String,
-					Desc:     "搜索关键词，例如文件名片段或内容关键词",
+					Desc:     "搜索关键词，例如 TempT、note.txt 或内容关键词",
 					Required: true,
 				},
 			},
@@ -149,7 +207,7 @@ func (t *SearchFilesTool) InvokableRun(ctx context.Context, argumentsInJSON stri
 		return toolNoRetry("keyword 不能为空"), nil
 	}
 
-	base, err := fileBasePath()
+	roots, err := walkSearchRoots()
 	if err != nil {
 		return toolNoRetry(err.Error()), nil
 	}
@@ -160,44 +218,50 @@ func (t *SearchFilesTool) InvokableRun(ctx context.Context, argumentsInJSON stri
 		Path string `json:"path"`
 	}
 	matches := make([]fileItem, 0)
+	seen := make(map[string]bool)
 
-	err = filepath.Walk(base, func(path string, info os.FileInfo, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if info.IsDir() {
-			return nil
-		}
-		if !isSearchableTextFile(info.Name()) {
-			return nil
-		}
-
-		rel, relErr := filepath.Rel(base, path)
-		if relErr != nil {
-			return nil
-		}
-		rel = filepath.ToSlash(rel)
-
-		nameMatched := strings.Contains(strings.ToLower(info.Name()), lowerKeyword)
-		contentMatched := false
-		if !nameMatched {
-			content, readErr := os.ReadFile(path)
-			if readErr == nil && strings.Contains(strings.ToLower(string(content)), lowerKeyword) {
-				contentMatched = true
+	for _, root := range roots {
+		walkErr := filepath.Walk(root.root, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil
 			}
-		}
-		if !nameMatched && !contentMatched {
-			return nil
-		}
+			if info.IsDir() {
+				return nil
+			}
+			if !isSearchableTextFile(info.Name()) {
+				return nil
+			}
 
-		matches = append(matches, fileItem{
-			Name: info.Name(),
-			Path: rel,
+			rel, relErr := filepath.Rel(root.root, path)
+			if relErr != nil {
+				return nil
+			}
+			displayPath := filepath.ToSlash(filepath.Join(root.relBase, rel))
+
+			nameMatched := strings.Contains(strings.ToLower(info.Name()), lowerKeyword)
+			contentMatched := false
+			if !nameMatched {
+				content, readErr := os.ReadFile(path)
+				if readErr == nil && strings.Contains(strings.ToLower(string(content)), lowerKeyword) {
+					contentMatched = true
+				}
+			}
+			if !nameMatched && !contentMatched {
+				return nil
+			}
+			if seen[displayPath] {
+				return nil
+			}
+			seen[displayPath] = true
+			matches = append(matches, fileItem{
+				Name: info.Name(),
+				Path: displayPath,
+			})
+			return nil
 		})
-		return nil
-	})
-	if err != nil {
-		return toolNoRetry(fmt.Sprintf("搜索失败: %v", err)), nil
+		if walkErr != nil {
+			return toolNoRetry(fmt.Sprintf("搜索失败: %v", walkErr)), nil
+		}
 	}
 
 	if len(matches) == 0 {
@@ -212,7 +276,7 @@ func (t *SearchFilesTool) InvokableRun(ctx context.Context, argumentsInJSON stri
 	return toolJSONResult(map[string]interface{}{
 		"success": true,
 		"files":   matches,
-		"message": "请从 files 中选择一项，将其 path 原样传给 read_file 的 file_path 参数",
+		"message": "请从 files 中选择一项，将其 path 原样传给 read_file 或 edit_file",
 		"retry":   false,
 	}), nil
 }
@@ -231,7 +295,7 @@ func (t *ReadFileTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 			map[string]*schema.ParameterInfo{
 				"file_path": {
 					Type:     schema.String,
-					Desc:     "search_files 返回的 path 字段，例如 Info/example.txt",
+					Desc:     "search_files 返回的 path 原样传入，例如 work/TempT 或 Info/example.txt",
 					Required: true,
 				},
 			},
@@ -249,7 +313,7 @@ func (t *ReadFileTool) InvokableRun(ctx context.Context, argumentsInJSON string,
 		return toolNoRetry("参数解析失败，请使用 search_files 返回的 file_path"), nil
 	}
 
-	path, err := resolveSafeFilePath(args.FilePath, fileBasePath)
+	path, err := resolveReadableFilePath(args.FilePath)
 	if err != nil {
 		return toolNoRetry(fmt.Sprintf("路径无效: %v。不要重试 read_file，请重新调用 search_files 获取真实路径", err)), nil
 	}
@@ -334,8 +398,16 @@ func (t *CreateFileTool) InvokableRun(ctx context.Context, argumentsInJSON strin
 	}
 
 	newPath := filepath.Join(base, title)
-	if _, err := os.Stat(newPath); err == nil {
-		return toolNoRetry("文件已存在，请更换 title"), nil
+	if st, err := os.Stat(newPath); err == nil {
+		rel, _ := filepath.Rel(base, newPath)
+		if st.Size() == 0 {
+			return toolJSONResult(map[string]interface{}{
+				"success": true,
+				"path":    filepath.ToSlash(rel),
+				"message": "文件已存在且为空，请使用 edit_file 写入内容",
+			}), nil
+		}
+		return toolNoRetry("文件已存在且非空，请更换 title 或使用 edit_file 修改"), nil
 	} else if !os.IsNotExist(err) {
 		return toolNoRetry(fmt.Sprintf("无法访问文件系统: %v", err)), nil
 	}
@@ -362,12 +434,12 @@ type EditFileParams struct {
 func (t *EditFileTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 	return &schema.ToolInfo{
 		Name: "edit_file",
-		Desc: "编辑文件，覆盖写入 content 到 file_path 指定的文件中。file_path 必须是 search_files 返回的路径或 create_file 创建的路径，禁止猜测路径",
+		Desc: "向 work 目录下的文件覆盖写入 content。file_path 使用 search_files 返回的 path（如 work/TempT），或 create_file 返回的 path（如 TempT）。禁止写入 Info 目录。",
 		ParamsOneOf: schema.NewParamsOneOfByParams(
 			map[string]*schema.ParameterInfo{
 				"file_path": {
 					Type:     schema.String,
-					Desc:     "目标文件路径，例如 Info/Note.txt，必须是 search_files 返回的路径或 create_file 创建的路径",
+					Desc:     "search_files 的 path（如 work/TempT）或 create_file 的 path（如 note.txt）",
 					Required: true,
 				},
 				"content": {
@@ -389,11 +461,7 @@ func (t *EditFileTool) InvokableRun(ctx context.Context, argumentsInJSON string,
 	if err != nil {
 		return toolNoRetry(fmt.Sprintf("路径无效: %v。不要重试 edit_file，请重新调用 search_files 或 create_file 获取真实路径", err)), nil
 	}
-	code, err := GoFmt(args.Content)
-	if err != nil {
-		return toolNoRetry(fmt.Sprintf("代码格式化失败: %v。不要重试 edit_file，请检查 content 是否为有效 Go 代码", err)), nil
-	}
-	err = os.WriteFile(path, []byte(code), 0644)
+	err = os.WriteFile(path, []byte(args.Content), 0644)
 	if err != nil {
 		return toolNoRetry(fmt.Sprintf("写入文件失败: %v。不要重试 edit_file，请检查路径是否正确", err)), nil
 	}

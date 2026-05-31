@@ -114,7 +114,7 @@ func (s *Service) IndexFromInfo(ctx context.Context) error {
 
 // Retrieve 根据用户问题检索相关文档片段
 func (s *Service) Retrieve(ctx context.Context, query string) string {
-	if !s.Enabled() || strings.TrimSpace(query) == "" {
+	if !s.Enabled() || strings.TrimSpace(query) == "" || len(query) < 5 { //短句，通常为判断，问候或者其他无实际检索意义的提问，不进行检索
 		return ""
 	}
 	vec, err := s.embedder.Embed(ctx, query)
