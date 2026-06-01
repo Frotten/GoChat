@@ -122,7 +122,6 @@ func (a *AIHelper) GenerateResponse(userName string, ctx context.Context, userQu
 	return modelMsg, nil
 }
 
-// StreamResponse 流式生成
 func (a *AIHelper) StreamResponse(userName string, ctx context.Context, cb StreamCallback, userQuestion string) (*model.Message, error) {
 
 	//调用存储函数
@@ -142,7 +141,6 @@ func (a *AIHelper) StreamResponse(userName string, ctx context.Context, cb Strea
 
 	//调用存储函数
 	a.AddMessage(modelMsg.Content, userName, false, true)
-
 	return modelMsg, nil
 }
 

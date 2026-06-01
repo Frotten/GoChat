@@ -470,3 +470,105 @@ func (t *EditFileTool) InvokableRun(ctx context.Context, argumentsInJSON string,
 		"path":    filepath.ToSlash(args.FilePath),
 	}), nil
 }
+
+type FormatGoCodeTool struct{}
+
+type FormatGoCodeParams struct {
+	Code string `json:"code"`
+}
+
+func (t *FormatGoCodeTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
+	return &schema.ToolInfo{
+		Name: "format_go_code",
+		Desc: "使用 gofmt 格式化 Go 代码，参数 code 是待格式化的 Go 代码字符串，返回格式化后的代码字符串，只应该对.go后缀的go文件使用该工具，禁止对非 Go 代码使用",
+		ParamsOneOf: schema.NewParamsOneOfByParams(
+			map[string]*schema.ParameterInfo{
+				"code": {
+					Type:     schema.String,
+					Desc:     "待格式化的 Go 代码字符串",
+					Required: true,
+				},
+			},
+		),
+	}, nil
+}
+
+func (t *FormatGoCodeTool) InvokableRun(ctx context.Context, argumentsInJSON string, opts ...tool.Option) (string, error) {
+	var args FormatGoCodeParams
+	if err := json.Unmarshal([]byte(argumentsInJSON), &args); err != nil {
+		return toolNoRetry("参数解析失败，请检查 code 字段"), nil
+	}
+	formatted, err := GoFmt(args.Code)
+	if err != nil {
+		return toolNoRetry(fmt.Sprintf("代码格式化失败: %v。请确保只对 Go 代码使用 format_go_code 工具", err)), nil
+	}
+	return formatted, nil
+}
+
+type RenameFileTool struct{}
+
+type RenameFileParams struct {
+	OldPath  string `json:"old_path"`
+	NewTitle string `json:"new_title"`
+}
+
+func (t *RenameFileTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
+	return &schema.ToolInfo{
+		Name: "rename_file",
+		Desc: "重命名 work 目录下的文件。old_path 使用 search_files 返回的 path（如 work/TempT）。new_title 仅作为新的文件名使用，禁止包含路径分隔符，文件会被重命名在原目录下。",
+		ParamsOneOf: schema.NewParamsOneOfByParams(
+			map[string]*schema.ParameterInfo{
+				"old_path": {
+					Type:     schema.String,
+					Desc:     "search_files 的 path，例如 work/TempT",
+					Required: true,
+				},
+				"new_title": {
+					Type:     schema.String,
+					Desc:     "新的文件标题，例如 NewName.txt，禁止包含路径分隔符",
+					Required: true,
+				},
+			},
+		),
+	}, nil
+}
+
+func (t *RenameFileTool) InvokableRun(ctx context.Context, argumentsInJSON string, opts ...tool.Option) (string, error) {
+	var args RenameFileParams
+	if err := json.Unmarshal([]byte(argumentsInJSON), &args); err != nil {
+		return toolNoRetry("参数解析失败，请检查 old_path 和 new_title 字段"), nil
+	}
+	oldPath, err := resolveSafeFilePath(args.OldPath, fileWorkPath)
+	if err != nil {
+		return toolNoRetry(fmt.Sprintf("旧路径无效: %v。不要重试 rename_file，请重新调用 search_files 获取真实路径", err)), nil
+	}
+	newTitle := strings.TrimSpace(args.NewTitle)
+	if newTitle == "" {
+		return toolNoRetry("new_title 不能为空"), nil
+	}
+	if strings.ContainsAny(newTitle, `\/`) {
+		return toolNoRetry("new_title 不能包含路径分隔符"), nil
+	}
+	base, err := fileWorkPath()
+	if err != nil {
+		return toolNoRetry(err.Error()), nil
+	}
+	newPath := filepath.Join(base, newTitle)
+	if st, err := os.Stat(newPath); err == nil {
+		if st.IsDir() {
+			return toolNoRetry("目标文件已存在且是目录，请更换 new_title 或使用 edit_file 修改内容"), nil
+		}
+		return toolNoRetry("目标文件已存在且非空，请更换 new_title 或使用 edit_file 修改"), nil
+	} else if !os.IsNotExist(err) {
+		return toolNoRetry(fmt.Sprintf("无法访问文件系统: %v", err)), nil
+	}
+	err = os.Rename(oldPath, newPath)
+	if err != nil {
+		return toolNoRetry(fmt.Sprintf("重命名文件失败: %v。不要重试 rename_file，请检查路径是否正确", err)), nil
+	}
+	rel, _ := filepath.Rel(base, newPath)
+	return toolJSONResult(map[string]interface{}{
+		"success": true,
+		"path":    filepath.ToSlash(rel),
+	}), nil
+}

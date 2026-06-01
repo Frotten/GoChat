@@ -84,14 +84,14 @@ func StreamMessageToExistingSession(userName string, sessionID string, userQuest
 		return code.AIModelFail
 	}
 
-	cb := func(msg string) {
+	cb := func(msg string) { //将cb作为回调函数传入StreamResponse，模型每生成一段内容就调用cb，将内容发送给用户端
 		log.Printf("[SSE] Sending chunk: %s (len=%d)\n", msg, len(msg))
 		_, err := writer.Write([]byte("data: " + msg + "\n\n"))
 		if err != nil {
 			log.Println("[SSE] Write error:", err)
 			return
 		}
-		flusher.Flush()
+		flusher.Flush() //强制将缓冲区的数据发送给用户端
 	}
 
 	_, err_ := helper.StreamResponse(userName, ctx, cb, userQuestion)

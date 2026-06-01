@@ -87,7 +87,9 @@ func llmToAgent(ctx context.Context, llm model.ToolCallingChatModel) *react.Agen
 		ToolsConfig: compose.ToolsNodeConfig{
 			Tools: []tool.BaseTool{
 				&GetCurrentTimeTool{},
+				&FormatGoCodeTool{},
 				&SearchFilesTool{},
+				&RenameFileTool{},
 				&CreateFileTool{},
 				&ReadFileTool{},
 				&EditFileTool{},
