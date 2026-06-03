@@ -1,20 +1,40 @@
 <template>
-  <div class="menu-container">
-    <el-header class="header">
-      <h1>AI应用平台</h1>
-      <el-button type="danger" @click="handleLogout">退出登录</el-button>
-    </el-header>
-    <el-main class="main">
-      <div class="menu-grid">
-        <el-card class="menu-item" @click="$router.push('/ai-chat')">
-          <div class="card-content">
-            <el-icon size="48" color="#409eff"><ChatDotRound /></el-icon>
-            <h3>AI聊天</h3>
-            <p>与AI进行智能对话（支持 RAG 知识库增强）</p>
-          </div>
-        </el-card>
+  <div class="geo-page geo-page--column menu-container">
+    <GeoBackground extra />
+
+    <header class="menu-header">
+      <div class="header-brand">
+        <div class="brand-accent"></div>
+        <span class="brand-label">PLATFORM</span>
+        <h1 class="brand-title">AI 应用平台</h1>
       </div>
-    </el-main>
+      <button class="geo-btn geo-btn--danger" @click="handleLogout">退出登录</button>
+    </header>
+
+    <main class="menu-main">
+      <div class="menu-intro">
+        <span class="intro-label">MODULES</span>
+        <p class="intro-desc">选择功能模块开始体验</p>
+      </div>
+
+      <div class="menu-grid">
+        <article class="menu-card" @click="$router.push('/ai-chat')">
+          <div class="card-geo">
+            <span></span><span></span>
+          </div>
+          <div class="card-icon">
+            <el-icon :size="28"><ChatDotRound /></el-icon>
+          </div>
+          <div class="card-body">
+            <span class="card-tag">CHAT</span>
+            <h3 class="card-title">AI 聊天</h3>
+            <p class="card-desc">与 AI 进行智能对话，支持 RAG 知识库增强</p>
+          </div>
+          <div class="card-arrow">→</div>
+          <div class="card-glow"></div>
+        </article>
+      </div>
+    </main>
   </div>
 </template>
 
@@ -22,11 +42,13 @@
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ChatDotRound } from '@element-plus/icons-vue'
+import GeoBackground from '../components/GeoBackground.vue'
 
 export default {
   name: 'MenuView',
   components: {
-    ChatDotRound
+    ChatDotRound,
+    GeoBackground
   },
   setup() {
     const router = useRouter()
@@ -56,180 +78,222 @@ export default {
 <style scoped>
 .menu-container {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.menu-header {
   position: relative;
-  overflow: hidden;
-}
-
-.menu-container::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.05)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.05)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.05)"/><circle cx="90" cy="40" r="0.8" fill="rgba(255,255,255,0.05)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
-  animation: grainMove 30s linear infinite;
-}
-
-@keyframes grainMove {
-  0% { transform: translate(0, 0); }
-  100% { transform: translate(100px, 100px); }
-}
-
-.header {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  color: white;
+  z-index: 2;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 30px;
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 20px 40px;
+  background: var(--c-surface-elevated);
+  border-bottom: 1px solid var(--c-line);
+  box-shadow: var(--shadow-soft);
+}
+
+.header-brand {
   position: relative;
-  z-index: 2;
 }
 
-.header h1 {
+.brand-accent {
+  width: 32px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--c-accent), var(--c-flow-2));
+  margin-bottom: 6px;
+  animation: geoAccentShimmer 3s ease-in-out infinite;
+}
+
+.brand-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--c-ink-faint);
+  margin-bottom: 2px;
+}
+
+.brand-title {
   margin: 0;
-  font-size: 28px;
+  font-size: 20px;
   font-weight: 600;
-  background: linear-gradient(135deg, #ffffff 0%, rgba(255,255,255,0.8) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  letter-spacing: -0.02em;
+  color: var(--c-ink);
 }
 
-.el-button {
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: white;
-  transition: all 0.3s ease;
-}
-
-.el-button:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-}
-
-.main {
+.menu-main {
   flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 40px;
+  gap: 40px;
+}
+
+.menu-intro {
+  text-align: center;
+  animation: geoFadeIn 0.6s ease-out;
+}
+
+.intro-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--c-ink-faint);
+}
+
+.intro-desc {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--c-ink-muted);
 }
 
 .menu-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 40px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px;
   max-width: 900px;
   width: 100%;
-  padding: 40px;
-  animation: gridFadeIn 1s ease-out;
 }
 
-@keyframes gridFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(50px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.menu-item {
-  cursor: pointer;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(15px);
-  border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+.menu-card {
   position: relative;
-  overflow: hidden;
-  animation: cardSlideIn 0.8s ease-out both;
-}
-
-@keyframes cardSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(60px) rotateX(10deg);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) rotateX(0deg);
-  }
-}
-
-.menu-item::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
   width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-  transition: left 0.6s;
+  max-width: 380px;
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 28px;
+  background: var(--c-surface-elevated);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  animation: geoSlideIn 0.5s ease-out;
 }
 
-.menu-item:hover::before {
-  left: 100%;
+.menu-card:hover {
+  border-color: var(--c-accent);
+  box-shadow: var(--shadow-medium), var(--shadow-glow);
+  transform: translateY(-2px);
 }
 
-.menu-item:hover {
-  transform: translateY(-15px) scale(1.05);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+.card-geo {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  gap: 4px;
+  opacity: 0.4;
 }
 
-.card-content {
-  text-align: center;
-  padding: 50px 30px;
-  position: relative;
-  z-index: 1;
-}
-
-.el-icon {
+.card-geo span {
   display: block;
-  margin: 0 auto 20px;
-  transition: all 0.3s ease;
+  border: 1px solid var(--c-line-strong);
 }
 
-.menu-item:hover .el-icon {
-  transform: scale(1.2) rotate(5deg);
+.card-geo span:nth-child(1) {
+  width: 12px;
+  height: 12px;
+  transform: rotate(8deg);
 }
 
-.card-content h3 {
-  margin: 0 0 15px 0;
-  color: #2c3e50;
-  font-size: 24px;
+.card-geo span:nth-child(2) {
+  width: 8px;
+  height: 16px;
+  transform: translateY(-2px);
+}
+
+.card-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-sm);
+  color: var(--c-accent);
+  background: var(--c-accent-soft);
+  transition: box-shadow 0.2s ease;
+}
+
+.menu-card:hover .card-icon {
+  box-shadow: var(--shadow-glow);
+}
+
+.card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--c-ink-faint);
+}
+
+.card-title {
+  margin: 6px 0 8px;
+  font-size: 18px;
   font-weight: 600;
-  transition: all 0.3s ease;
+  color: var(--c-ink);
+  letter-spacing: -0.01em;
 }
 
-.menu-item:hover h3 {
-  color: #409eff;
-  transform: translateY(-5px);
-}
-
-.card-content p {
+.card-desc {
   margin: 0;
-  color: #7f8c8d;
-  font-size: 16px;
+  font-size: 13px;
   line-height: 1.6;
-  transition: all 0.3s ease;
+  color: var(--c-ink-muted);
 }
 
-.menu-item:hover p {
-  color: #34495e;
-  transform: translateY(-3px);
+.card-arrow {
+  flex-shrink: 0;
+  align-self: center;
+  font-size: 18px;
+  color: var(--c-ink-faint);
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.menu-card:hover .card-arrow {
+  color: var(--c-accent);
+  transform: translateX(4px);
+}
+
+.card-glow {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--c-flow-1), var(--c-flow-2), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.menu-card:hover .card-glow {
+  opacity: 0.8;
+}
+
+@media (max-width: 768px) {
+  .menu-header {
+    padding: 16px 20px;
+  }
+
+  .menu-main {
+    padding: 32px 20px;
+  }
+
+  .menu-card {
+    max-width: 100%;
+  }
 }
 </style>

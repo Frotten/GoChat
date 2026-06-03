@@ -15,6 +15,8 @@ export default {
 </script>
 
 <style>
+@import './styles/geo-theme.css';
+
 * {
   margin: 0;
   padding: 0;
@@ -23,10 +25,11 @@ export default {
 
 html, body {
   height: 100%;
-  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #f5f7fa;
+  background: var(--c-bg);
+  color: var(--c-ink);
 }
 
 #app {
@@ -36,69 +39,66 @@ html, body {
 /* 页面切换动画 */
 .page-enter-active,
 .page-leave-active {
-  transition: all 0.4s cubic-bezier(0.55, 0, 0.1, 1);
+  transition: opacity 0.35s ease, transform 0.35s ease;
 }
 
 .page-enter-from {
   opacity: 0;
-  transform: translateX(30px);
+  transform: translateY(12px);
 }
 
 .page-leave-to {
   opacity: 0;
-  transform: translateX(-30px);
+  transform: translateY(-8px);
 }
 
-/* 全局滚动条样式 */
+/* 全局滚动条 */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(102, 126, 234, 0.3);
-  border-radius: 4px;
-  transition: background 0.3s ease;
+  background: var(--c-line-strong);
+  border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(102, 126, 234, 0.5);
+  background: var(--c-ink-faint);
 }
 
-/* Element Plus 组件样式覆盖 */
+/* Element Plus 全局微调 */
 .el-button {
   font-weight: 500;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 
 .el-input {
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 
 .el-card {
-  border-radius: 12px;
+  border-radius: var(--radius-md);
 }
 
 .el-message {
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--c-line);
+  box-shadow: var(--shadow-medium);
 }
 
-/* 响应式设计 */
+.el-message-box {
+  border-radius: var(--radius-md);
+}
+
 @media (max-width: 768px) {
   .page-enter-from,
   .page-leave-to {
-    transform: translateX(0);
-    opacity: 0;
-  }
-
-  .page-enter-active,
-  .page-leave-active {
-    transition: opacity 0.3s ease;
+    transform: translateY(8px);
   }
 }
 </style>

@@ -1,0 +1,43 @@
+# ── Dependencies ──
+node_modules/
+vendor/
+
+# ── Build / dist ──
+dist/
+build/
+out/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# ── Environment & secrets ──
+.env
+.env.*
+Env.env
+*.pem
+*.key
+
+# ── IDE ──
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Logs & cache ──
+*.log
+logs/
+.cache/
+vue-frontend/node_modules/.cache/
+
+# ── Go ──
+*.test
+*.out
+
+# ── Local scratch (optional) ──
+work/
