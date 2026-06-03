@@ -8,22 +8,10 @@ import (
 )
 
 func NewModelFromEnv(ctx context.Context) (AIModel, error) {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("OPENAI_TYPE"))) {
-	case "ark":
-		return NewOpenAIModel(ctx)
-	case "ollama":
-		baseURL := os.Getenv("OLLAMA_BASE_URL")
-		if baseURL == "" {
-			baseURL = "http://localhost:11434"
-		}
-		modelName := os.Getenv("OLLAMA_MODEL")
-		if modelName == "" {
-			return nil, fmt.Errorf("OLLAMA_MODEL is required when OPENAI_TYPE=ollama")
-		}
-		return NewOllamaModel(ctx, baseURL, modelName)
-	default:
-		return NewOpenAIModel(ctx)
+	if openAIType() == "ollama" && strings.TrimSpace(os.Getenv("OLLAMA_MODEL")) == "" {
+		return nil, fmt.Errorf("OLLAMA_MODEL is required when OPENAI_TYPE=ollama")
 	}
+	return NewAgentModel(ctx)
 }
 
 func NewAIHelperFromEnv(ctx context.Context, sessionID string) (*AIHelper, error) {
