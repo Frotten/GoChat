@@ -40,20 +40,13 @@ type AIHelper struct {
 	mu       sync.RWMutex
 	//一个会话绑定一个AIHelper
 	SessionID string
-	saveFunc  func(*model.Message) (*model.Message, error)
 }
 
 // NewAIHelper 创建新的AIHelper实例
 func NewAIHelper(model_ AIModel, SessionID string) *AIHelper {
 	return &AIHelper{
-		model:    model_,
-		messages: make([]*model.Message, 0),
-		//异步推送到消息队列中
-		saveFunc: func(msg *model.Message) (*model.Message, error) {
-			data := rabbitmq.GenerateMessageMQParam(msg.SessionID, msg.Content, msg.UserName, msg.IsUser)
-			err := rabbitmq.RMQMessage.Publish(data)
-			return msg, err
-		},
+		model:     model_,
+		messages:  make([]*model.Message, 0),
 		SessionID: SessionID,
 	}
 }
@@ -68,14 +61,8 @@ func (a *AIHelper) AddMessage(Content string, UserName string, IsUser bool, Save
 	}
 	a.messages = append(a.messages, &userMsg)
 	if Save {
-		_, _ = a.saveFunc(&userMsg)
+		_, _ = rabbitmq.SaveFunc(&userMsg)
 	}
-}
-
-// SetSaveFunc 保存消息到数据库（通过回调函数避免循环依赖）
-// 通过传入func，自己调用外部的保存函数，即可支持同步异步等多种策略
-func (a *AIHelper) SetSaveFunc(saveFunc func(*model.Message) (*model.Message, error)) {
-	a.saveFunc = saveFunc
 }
 
 // GetMessages 获取所有消息历史

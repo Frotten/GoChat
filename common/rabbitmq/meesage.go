@@ -39,6 +39,12 @@ func MQMessage(msg *amqp.Delivery) error {
 		IsUser:    param.IsUser,
 	}
 	//消费者异步插入到数据库中
-	message.CreateMessage(newMsg)
+	_, _ = message.CreateMessage(newMsg)
 	return nil
+}
+
+func SaveFunc(msg *model.Message) (*model.Message, error) {
+	data := GenerateMessageMQParam(msg.SessionID, msg.Content, msg.UserName, msg.IsUser)
+	err := RMQMessage.Publish(data)
+	return msg, err
 }
