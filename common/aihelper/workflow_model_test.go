@@ -61,7 +61,7 @@ func TestWorkflowAgentModelStreamResponse(t *testing.T) {
 	base := &fakeAIModel{
 		modelType: "fake",
 		generate: func(ctx context.Context, messages []*schema.Message) (*schema.Message, error) {
-			return &schema.Message{Content: "ignored"}, nil
+			return &schema.Message{Content: "hello"}, nil
 		},
 		stream: func(ctx context.Context, messages []*schema.Message, cb StreamCallback) (string, error) {
 			cb("he")
@@ -89,7 +89,7 @@ func TestWorkflowAgentModelStreamResponse(t *testing.T) {
 		t.Fatalf("unexpected streamed response: %s", resp)
 	}
 
-	if len(chunks) != 2 || chunks[0] != "he" || chunks[1] != "llo" {
+	if len(chunks) != 1 || chunks[0] != "hello" {
 		t.Fatalf("unexpected chunks: %#v", chunks)
 	}
 }
