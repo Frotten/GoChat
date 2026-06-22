@@ -11,7 +11,11 @@ func NewModelFromEnv(ctx context.Context) (AIModel, error) {
 	if openAIType() == "ollama" && strings.TrimSpace(os.Getenv("OLLAMA_MODEL")) == "" {
 		return nil, fmt.Errorf("OLLAMA_MODEL is required when OPENAI_TYPE=ollama")
 	}
-	return NewAgentModel(ctx)
+	baseModel, err := NewAgentModel(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return NewWorkflowAgentModel(ctx, baseModel)
 }
 
 func NewAIHelperFromEnv(ctx context.Context, sessionID string) (*AIHelper, error) {
