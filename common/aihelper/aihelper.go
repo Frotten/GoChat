@@ -31,7 +31,9 @@ var promoteTemplate = `你是智能助手，用自然语言与用户对话。
 
 【Info 目录】优先用已有上下文回答，不要写入 Info 目录。
 
-【回复风格】禁止在回复中出现 JSON、函数名、tool、parameters；代码用 markdown 代码块。`
+【回复风格】禁止在回复中出现 JSON、函数名、tool、parameters；代码用 markdown 代码块。
+
+【提问】 当用户提问时，请一步一步进行分析，如果需要调用工具，请先分析问题，明确需要调用的工具和参数，再调用工具。不要直接调用工具。`
 
 // AIHelper AI助手结构体，包含消息历史和AI模型
 type AIHelper struct {
