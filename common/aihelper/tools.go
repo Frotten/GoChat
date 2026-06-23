@@ -434,7 +434,7 @@ type EditFileParams struct {
 func (t *EditFileTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 	return &schema.ToolInfo{
 		Name: "edit_file",
-		Desc: "向 work 目录下的文件覆盖写入 content。file_path 使用 search_files 返回的 path（如 work/TempT），或 create_file 返回的 path（如 TempT）。禁止写入 Info 目录。",
+		Desc: "编辑work目录下的文件内容，将文件内容替换为Content。file_path 使用 search_files 返回的 path（如 work/TempT），或 create_file 返回的 path（如 TempT）。禁止写入 Info 目录。",
 		ParamsOneOf: schema.NewParamsOneOfByParams(
 			map[string]*schema.ParameterInfo{
 				"file_path": {
