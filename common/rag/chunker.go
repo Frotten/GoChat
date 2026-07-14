@@ -66,7 +66,6 @@ func splitText(text string, chunkSize, overlap int) []string {
 			// 当前Chunk满了
 			if currentLen+l > chunkSize {
 				chunks = append(chunks, strings.Join(current, "\n"))
-				// ===== 保留 overlap 个句子 =====
 				if overlap > 0 && len(current) > 0 {
 					var keep []string
 					length := 0
