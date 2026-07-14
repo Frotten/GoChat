@@ -1,131 +1,15 @@
 package aihelper
 
 import (
-	"GopherAI/config"
 	"GopherAI/service/tools"
 	"context"
 	"encoding/json"
 	"fmt"
-	"go/format"
-	"io"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
 )
-
-const maxFileReadBytes = 32 * 1024
-
-func GoFmt(code string) (string, error) {
-	buf, err := format.Source([]byte(code))
-	if err != nil {
-		return "", err
-	}
-	return string(buf), nil
-}
-
-func fileBasePath() (string, error) {
-	base := strings.TrimSpace(config.GetConfig().FileConfig.BasePath)
-	if base == "" {
-		return "", fmt.Errorf("文件目录未配置")
-	}
-	return filepath.Abs(base)
-}
-
-func fileWorkPath() (string, error) {
-	base := strings.TrimSpace(config.GetConfig().FileConfig.WorkPath)
-	if base == "" {
-		return "", fmt.Errorf("文件工作目录未配置")
-	}
-	return filepath.Abs(base)
-}
-
-func resolveSafeFilePath(input string, PathFunc func() (string, error)) (string, error) {
-	base, err := PathFunc()
-	if err != nil {
-		return "", err
-	}
-	input = normalizeWorkFilePath(input)
-	if input == "" {
-		return "", fmt.Errorf("file_path 不能为空")
-	}
-	var candidate string
-	if filepath.IsAbs(input) {
-		candidate = filepath.Clean(input)
-	} else {
-		candidate = filepath.Clean(filepath.Join(base, filepath.FromSlash(input)))
-	}
-	abs, err := filepath.Abs(candidate)
-	if err != nil {
-		return "", err
-	}
-	rel, err := filepath.Rel(base, abs)
-	if err != nil || strings.HasPrefix(rel, "..") {
-		return "", fmt.Errorf("不允许访问工作目录外的文件")
-	}
-	return abs, nil
-}
-
-// normalizeWorkFilePath 统一 work 目录下文件的路径表示。
-// search_files 返回 work/TempT 时，edit_file 根目录已是 work/，需去掉多余前缀。
-func normalizeWorkFilePath(input string) string {
-	input = strings.TrimSpace(strings.ReplaceAll(input, "\\", "/"))
-	for strings.HasPrefix(input, "./") {
-		input = strings.TrimPrefix(input, "./")
-	}
-	if strings.HasPrefix(strings.ToLower(input), "work/") {
-		return input[len("work/"):]
-	}
-	return input
-}
-
-func resolveReadableFilePath(input string) (string, error) {
-	input = strings.TrimSpace(strings.ReplaceAll(input, "\\", "/"))
-	if input == "" {
-		return "", fmt.Errorf("file_path 不能为空")
-	}
-	lower := strings.ToLower(input)
-	if strings.HasPrefix(lower, "info/") {
-		return resolveSafeFilePath(input, fileBasePath)
-	}
-	if path, err := resolveSafeFilePath(normalizeWorkFilePath(input), fileWorkPath); err == nil {
-		if _, statErr := os.Stat(path); statErr == nil {
-			return path, nil
-		}
-	}
-	return resolveSafeFilePath(input, fileBasePath)
-}
-
-func walkSearchRoots() ([]struct {
-	root    string
-	relBase string
-}, error) {
-	work, err := fileWorkPath()
-	if err != nil {
-		return nil, err
-	}
-	roots := []struct {
-		root    string
-		relBase string
-	}{
-		{root: work, relBase: "work"},
-	}
-	base, err := fileBasePath()
-	if err != nil {
-		return nil, err
-	}
-	infoDir := filepath.Join(base, "Info")
-	if st, statErr := os.Stat(infoDir); statErr == nil && st.IsDir() {
-		roots = append(roots, struct {
-			root    string
-			relBase string
-		}{root: infoDir, relBase: "Info"})
-	}
-	return roots, nil
-}
 
 func toolJSONResult(payload map[string]interface{}) string {
 	data, err := json.Marshal(payload)
@@ -141,16 +25,6 @@ func toolNoRetry(message string) string {
 		"retry":   false,
 		"message": message,
 	})
-}
-
-func isSearchableTextFile(name string) bool {
-	ext := strings.ToLower(filepath.Ext(name))
-	switch ext {
-	case ".txt", ".md", ".json", ".yaml", ".yml", ".xml", ".csv", ".log", ".go", ".js", ".ts", ".vue", ".html", ".css":
-		return true
-	default:
-		return ext == ""
-	}
 }
 
 type GetCurrentTimeTool struct{}
@@ -197,89 +71,11 @@ func (t *SearchFilesTool) InvokableRun(ctx context.Context, argumentsInJSON stri
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
-
 	var args SearchFilesParams
 	if err := json.Unmarshal([]byte(argumentsInJSON), &args); err != nil {
 		return toolNoRetry("参数解析失败，请检查 keyword 字段"), nil
 	}
-
-	keyword := strings.TrimSpace(args.Keyword)
-	if keyword == "" {
-		return toolNoRetry("keyword 不能为空"), nil
-	}
-
-	roots, err := walkSearchRoots()
-	if err != nil {
-		return toolNoRetry(err.Error()), nil
-	}
-
-	lowerKeyword := strings.ToLower(keyword)
-	type fileItem struct {
-		Name string `json:"name"`
-		Path string `json:"path"`
-	}
-	matches := make([]fileItem, 0)
-	seen := make(map[string]bool)
-
-	for _, root := range roots {
-		walkErr := filepath.Walk(root.root, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return nil
-			}
-			if info.IsDir() {
-				return nil
-			}
-			if !isSearchableTextFile(info.Name()) {
-				return nil
-			}
-
-			rel, relErr := filepath.Rel(root.root, path)
-			if relErr != nil {
-				return nil
-			}
-			displayPath := filepath.ToSlash(filepath.Join(root.relBase, rel))
-
-			nameMatched := strings.Contains(strings.ToLower(info.Name()), lowerKeyword)
-			contentMatched := false
-			if !nameMatched {
-				content, readErr := os.ReadFile(path)
-				if readErr == nil && strings.Contains(strings.ToLower(string(content)), lowerKeyword) {
-					contentMatched = true
-				}
-			}
-			if !nameMatched && !contentMatched {
-				return nil
-			}
-			if seen[displayPath] {
-				return nil
-			}
-			seen[displayPath] = true
-			matches = append(matches, fileItem{
-				Name: info.Name(),
-				Path: displayPath,
-			})
-			return nil
-		})
-		if walkErr != nil {
-			return toolNoRetry(fmt.Sprintf("搜索失败: %v", walkErr)), nil
-		}
-	}
-
-	if len(matches) == 0 {
-		return toolJSONResult(map[string]interface{}{
-			"success": true,
-			"files":   []fileItem{},
-			"message": fmt.Sprintf("未找到包含关键词 %q 的文件，请勿猜测文件名，可更换关键词或告知用户", keyword),
-			"retry":   false,
-		}), nil
-	}
-
-	return toolJSONResult(map[string]interface{}{
-		"success": true,
-		"files":   matches,
-		"message": "请从 files 中选择一项，将其 path 原样传给 read_file 或 edit_file",
-		"retry":   false,
-	}), nil
+	return tools.SearchFile(args.Keyword)
 }
 
 type ReadFileTool struct{}
@@ -308,55 +104,11 @@ func (t *ReadFileTool) InvokableRun(ctx context.Context, argumentsInJSON string,
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
-
 	var args ReadFileParams
 	if err := json.Unmarshal([]byte(argumentsInJSON), &args); err != nil {
 		return toolNoRetry("参数解析失败，请使用 search_files 返回的 file_path"), nil
 	}
-
-	path, err := resolveReadableFilePath(args.FilePath)
-	if err != nil {
-		return toolNoRetry(fmt.Sprintf("路径无效: %v。不要重试 read_file，请重新调用 search_files 获取真实路径", err)), nil
-	}
-
-	info, err := os.Stat(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return toolNoRetry(fmt.Sprintf("文件 %q 不存在。不要重试 read_file，请重新调用 search_files 或告知用户文件不存在", args.FilePath)), nil
-		}
-		return toolNoRetry(fmt.Sprintf("无法访问文件: %v。不要重试 read_file", err)), nil
-	}
-	if info.IsDir() {
-		return toolNoRetry("目标是目录而非文件。不要重试 read_file，请从 search_files 结果中选择文件 path"), nil
-	}
-
-	file, err := os.Open(path)
-	if err != nil {
-		return toolNoRetry(fmt.Sprintf("打开文件失败: %v。不要重试 read_file", err)), nil
-	}
-	defer file.Close()
-
-	limited := io.LimitReader(file, maxFileReadBytes+1)
-	contentBytes, err := io.ReadAll(limited)
-	if err != nil {
-		return toolNoRetry(fmt.Sprintf("读取文件失败: %v。不要重试 read_file", err)), nil
-	}
-
-	truncated := len(contentBytes) > maxFileReadBytes
-	if truncated {
-		contentBytes = contentBytes[:maxFileReadBytes]
-	}
-
-	content := string(contentBytes)
-	if truncated {
-		content += fmt.Sprintf("\n\n[内容已截断，仅返回前 %d 字节]", maxFileReadBytes)
-	}
-
-	return toolJSONResult(map[string]interface{}{
-		"success": true,
-		"path":    filepath.ToSlash(args.FilePath),
-		"content": content,
-	}), nil
+	return tools.ReadFile(args.FilePath)
 }
 
 type CreateFileTool struct{}
@@ -386,43 +138,7 @@ func (t *CreateFileTool) InvokableRun(ctx context.Context, argumentsInJSON strin
 	if err := json.Unmarshal([]byte(argumentsInJSON), &args); err != nil {
 		return toolNoRetry("参数解析失败，请检查 title 字段"), nil
 	}
-	title := strings.TrimSpace(args.Title)
-	if title == "" {
-		return toolNoRetry("title 不能为空"), nil
-	}
-	if strings.ContainsAny(title, `\/`) {
-		return toolNoRetry("title 不能包含路径分隔符"), nil
-	}
-	base, err := fileWorkPath()
-	if err != nil {
-		return toolNoRetry(err.Error()), nil
-	}
-
-	newPath := filepath.Join(base, title)
-	if st, err := os.Stat(newPath); err == nil {
-		rel, _ := filepath.Rel(base, newPath)
-		if st.Size() == 0 {
-			return toolJSONResult(map[string]interface{}{
-				"success": true,
-				"path":    filepath.ToSlash(rel),
-				"message": "文件已存在且为空，请使用 edit_file 写入内容",
-			}), nil
-		}
-		return toolNoRetry("文件已存在且非空，请更换 title 或使用 edit_file 修改"), nil
-	} else if !os.IsNotExist(err) {
-		return toolNoRetry(fmt.Sprintf("无法访问文件系统: %v", err)), nil
-	}
-
-	file, err := os.Create(newPath)
-	if err != nil {
-		return toolNoRetry(fmt.Sprintf("创建文件失败: %v", err)), nil
-	}
-	_ = file.Close()
-	rel, _ := filepath.Rel(base, newPath)
-	return toolJSONResult(map[string]interface{}{
-		"success": true,
-		"path":    filepath.ToSlash(rel),
-	}), nil
+	return tools.CreateFile(args.Title)
 }
 
 type EditFileTool struct{}
@@ -458,18 +174,7 @@ func (t *EditFileTool) InvokableRun(ctx context.Context, argumentsInJSON string,
 	if err := json.Unmarshal([]byte(argumentsInJSON), &args); err != nil {
 		return toolNoRetry("参数解析失败，请检查 file_path 和 content 字段"), nil
 	}
-	path, err := resolveSafeFilePath(args.FilePath, fileWorkPath)
-	if err != nil {
-		return toolNoRetry(fmt.Sprintf("路径无效: %v。不要重试 edit_file，请重新调用 search_files 或 create_file 获取真实路径", err)), nil
-	}
-	err = os.WriteFile(path, []byte(args.Content), 0644)
-	if err != nil {
-		return toolNoRetry(fmt.Sprintf("写入文件失败: %v。不要重试 edit_file，请检查路径是否正确", err)), nil
-	}
-	return toolJSONResult(map[string]interface{}{
-		"success": true,
-		"path":    filepath.ToSlash(args.FilePath),
-	}), nil
+	return tools.EditFile(args.FilePath, args.Content)
 }
 
 type FormatGoCodeTool struct{}
@@ -499,11 +204,7 @@ func (t *FormatGoCodeTool) InvokableRun(ctx context.Context, argumentsInJSON str
 	if err := json.Unmarshal([]byte(argumentsInJSON), &args); err != nil {
 		return toolNoRetry("参数解析失败，请检查 code 字段"), nil
 	}
-	formatted, err := GoFmt(args.Code)
-	if err != nil {
-		return toolNoRetry(fmt.Sprintf("代码格式化失败: %v。请确保只对 Go 代码使用 format_go_code 工具", err)), nil
-	}
-	return formatted, nil
+	return tools.GoFmtCode(args.Code)
 }
 
 type RenameFileTool struct{}
@@ -539,75 +240,25 @@ func (t *RenameFileTool) InvokableRun(ctx context.Context, argumentsInJSON strin
 	if err := json.Unmarshal([]byte(argumentsInJSON), &args); err != nil {
 		return toolNoRetry("参数解析失败，请检查 old_path 和 new_title 字段"), nil
 	}
-	oldPath, err := resolveSafeFilePath(args.OldPath, fileWorkPath)
-	if err != nil {
-		return toolNoRetry(fmt.Sprintf("旧路径无效: %v。不要重试 rename_file，请重新调用 search_files 获取真实路径", err)), nil
-	}
-	newTitle := strings.TrimSpace(args.NewTitle)
-	if newTitle == "" {
-		return toolNoRetry("new_title 不能为空"), nil
-	}
-	if strings.ContainsAny(newTitle, `\/`) {
-		return toolNoRetry("new_title 不能包含路径分隔符"), nil
-	}
-	base, err := fileWorkPath()
-	if err != nil {
-		return toolNoRetry(err.Error()), nil
-	}
-	newPath := filepath.Join(base, newTitle)
-	if st, err := os.Stat(newPath); err == nil {
-		if st.IsDir() {
-			return toolNoRetry("目标文件已存在且是目录，请更换 new_title 或使用 edit_file 修改内容"), nil
-		}
-		return toolNoRetry("目标文件已存在且非空，请更换 new_title 或使用 edit_file 修改"), nil
-	} else if !os.IsNotExist(err) {
-		return toolNoRetry(fmt.Sprintf("无法访问文件系统: %v", err)), nil
-	}
-	err = os.Rename(oldPath, newPath)
-	if err != nil {
-		return toolNoRetry(fmt.Sprintf("重命名文件失败: %v。不要重试 rename_file，请检查路径是否正确", err)), nil
-	}
-	rel, _ := filepath.Rel(base, newPath)
-	return toolJSONResult(map[string]interface{}{
-		"success": true,
-		"path":    filepath.ToSlash(rel),
-	}), nil
+	return tools.RenameFile(args.OldPath, args.NewTitle)
 }
 
 type WebSearchTool struct{}
 
 type WebSearchParams struct {
-	Query         string `json:"query"`
-	SearchDepth   string `json:"search_depth,omitempty"`
-	IncludeAnswer bool   `json:"include_answer"`
-	MaxResults    int    `json:"max_results"`
+	Query string `json:"query"`
 }
 
 func (t *WebSearchTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 	return &schema.ToolInfo{
 		Name: "web_search",
-		Desc: "在网络上搜索信息，返回搜索结果列表。query 是搜索关键词，search_depth 是搜索深度，include_answer 表示是否包含答案，max_results 表示最大返回结果数。",
+		Desc: "在网络上搜索信息，返回搜索结果列表。query 是搜索关键词,代指你要搜索的内容",
 		ParamsOneOf: schema.NewParamsOneOfByParams(
 			map[string]*schema.ParameterInfo{
 				"query": {
 					Type:     schema.String,
 					Desc:     "搜索关键词",
 					Required: true,
-				},
-				"search_depth": {
-					Type:     schema.String,
-					Desc:     "搜索深度",
-					Required: false,
-				},
-				"include_answer": {
-					Type:     schema.Boolean,
-					Desc:     "是否包含答案",
-					Required: false,
-				},
-				"max_results": {
-					Type:     schema.Integer,
-					Desc:     "最大返回结果数",
-					Required: false,
 				},
 			},
 		),
@@ -619,11 +270,7 @@ func (t *WebSearchTool) InvokableRun(ctx context.Context, argumentsInJSON string
 	if err := json.Unmarshal([]byte(argumentsInJSON), &args); err != nil {
 		return toolNoRetry("参数解析失败，请检查 query 字段"), nil
 	}
-	body, err := json.Marshal(args)
-	if err != nil {
-		return toolNoRetry(fmt.Sprintf("参数序列化失败: %v", err)), nil
-	}
-	Ans, err := tools.TavilySearch(ctx, body)
+	Ans, err := tools.TavilySearch(ctx, args.Query)
 	if err != nil {
 		return toolNoRetry(fmt.Sprintf("网络搜索失败: %v", err)), nil
 	}

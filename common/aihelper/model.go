@@ -111,6 +111,7 @@ func llmToAgent(ctx context.Context, llm model.ToolCallingChatModel) (*react.Age
 				&SearchFilesTool{},
 				&RenameFileTool{},
 				&CreateFileTool{},
+				&WebSearchTool{},
 				&ReadFileTool{},
 				&EditFileTool{},
 			},

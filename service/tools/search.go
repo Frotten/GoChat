@@ -12,10 +12,20 @@ import (
 	"time"
 )
 
-func TavilySearch(ctx context.Context, body []byte) (string, error) {
+func TavilySearch(ctx context.Context, Query string) (string, error) {
 	apiKey := os.Getenv("TAVILY_API_KEY")
 	if apiKey == "" {
 		return "", nil
+	}
+	Body := &model.TavilyRequest{
+		Query:         Query,
+		SearchDepth:   "basic",
+		IncludeAnswer: true,
+		MaxResults:    5,
+	}
+	body, err := json.Marshal(Body)
+	if err != nil {
+		return "", err
 	}
 	req, err := http.NewRequestWithContext(
 		ctx,

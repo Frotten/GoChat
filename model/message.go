@@ -28,3 +28,10 @@ type TavilyResponse struct {
 		Score   float64 `json:"score"`
 	} `json:"results"`
 }
+
+type TavilyRequest struct {
+	Query         string `json:"query"`
+	SearchDepth   string `json:"search_depth,omitempty"`
+	IncludeAnswer bool   `json:"include_answer"`
+	MaxResults    int    `json:"max_results"`
+}
