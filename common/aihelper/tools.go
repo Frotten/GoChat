@@ -2,6 +2,7 @@ package aihelper
 
 import (
 	"GopherAI/config"
+	"GopherAI/service/tools"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -571,4 +572,60 @@ func (t *RenameFileTool) InvokableRun(ctx context.Context, argumentsInJSON strin
 		"success": true,
 		"path":    filepath.ToSlash(rel),
 	}), nil
+}
+
+type WebSearchTool struct{}
+
+type WebSearchParams struct {
+	Query         string `json:"query"`
+	SearchDepth   string `json:"search_depth,omitempty"`
+	IncludeAnswer bool   `json:"include_answer"`
+	MaxResults    int    `json:"max_results"`
+}
+
+func (t *WebSearchTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
+	return &schema.ToolInfo{
+		Name: "web_search",
+		Desc: "在网络上搜索信息，返回搜索结果列表。query 是搜索关键词，search_depth 是搜索深度，include_answer 表示是否包含答案，max_results 表示最大返回结果数。",
+		ParamsOneOf: schema.NewParamsOneOfByParams(
+			map[string]*schema.ParameterInfo{
+				"query": {
+					Type:     schema.String,
+					Desc:     "搜索关键词",
+					Required: true,
+				},
+				"search_depth": {
+					Type:     schema.String,
+					Desc:     "搜索深度",
+					Required: false,
+				},
+				"include_answer": {
+					Type:     schema.Boolean,
+					Desc:     "是否包含答案",
+					Required: false,
+				},
+				"max_results": {
+					Type:     schema.Integer,
+					Desc:     "最大返回结果数",
+					Required: false,
+				},
+			},
+		),
+	}, nil
+}
+
+func (t *WebSearchTool) InvokableRun(ctx context.Context, argumentsInJSON string, opts ...tool.Option) (string, error) {
+	var args WebSearchParams
+	if err := json.Unmarshal([]byte(argumentsInJSON), &args); err != nil {
+		return toolNoRetry("参数解析失败，请检查 query 字段"), nil
+	}
+	body, err := json.Marshal(args)
+	if err != nil {
+		return toolNoRetry(fmt.Sprintf("参数序列化失败: %v", err)), nil
+	}
+	Ans, err := tools.TavilySearch(ctx, body)
+	if err != nil {
+		return toolNoRetry(fmt.Sprintf("网络搜索失败: %v", err)), nil
+	}
+	return Ans, nil
 }

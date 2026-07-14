@@ -17,3 +17,14 @@ type History struct {
 	IsUser  bool   `json:"is_user"`
 	Content string `json:"content"`
 }
+
+type TavilyResponse struct {
+	Query   string `json:"query"`
+	Answer  string `json:"answer"`
+	Results []struct {
+		Title   string  `json:"title"`
+		URL     string  `json:"url"`
+		Content string  `json:"content"`
+		Score   float64 `json:"score"`
+	} `json:"results"`
+}
