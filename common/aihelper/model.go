@@ -116,7 +116,7 @@ func llmToAgent(ctx context.Context, llm model.ToolCallingChatModel) (*react.Age
 				&EditFileTool{},
 			},
 		},
-		MaxStep: 15,
+		MaxStep: 10,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create agent failed: %w", err)
