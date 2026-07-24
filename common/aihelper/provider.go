@@ -15,7 +15,11 @@ func NewModelFromEnv(ctx context.Context) (AIModel, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewWorkflowAgentModel(ctx, baseModel)
+	workflowModel, err := NewWorkflowAgentModel(ctx, baseModel)
+	if err != nil {
+		return nil, err
+	}
+	return NewTaskLayerModel(ctx, workflowModel)
 }
 
 func NewAIHelperFromEnv(ctx context.Context, sessionID string) (*AIHelper, error) {
