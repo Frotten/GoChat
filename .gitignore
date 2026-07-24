@@ -41,3 +41,5 @@ vue-frontend/node_modules/.cache/
 
 # ── Local scratch (optional) ──
 work/
+
+*.toml
