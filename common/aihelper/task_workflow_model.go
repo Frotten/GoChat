@@ -522,9 +522,9 @@ func formatObservations(observations []Observation) string {
 	var b strings.Builder
 	for _, obs := range observations {
 		if obs.Success {
-			fmt.Fprintf(&b, "- step=%d round=%d success=true result=%s\n", obs.StepID, obs.Round, obs.Result)
+			_, _ = fmt.Fprintf(&b, "- step=%d round=%d success=true result=%s\n", obs.StepID, obs.Round, obs.Result)
 		} else {
-			fmt.Fprintf(&b, "- step=%d round=%d success=false error=%s result=%s\n", obs.StepID, obs.Round, obs.Error, obs.Result)
+			_, _ = fmt.Fprintf(&b, "- step=%d round=%d success=false error=%s result=%s\n", obs.StepID, obs.Round, obs.Error, obs.Result)
 		}
 	}
 	return strings.TrimSpace(b.String())

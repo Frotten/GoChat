@@ -3,6 +3,7 @@ import Login from '../views/Login.vue'
 import Register from '../views/Register.vue'
 import Menu from '../views/Menu.vue'
 import AIChat from '../views/AIChat.vue'
+import EvalDashboard from '../views/EvalDashboard.vue'
 const routes = [
   {
     path: '/',
@@ -28,6 +29,12 @@ const routes = [
     path: '/ai-chat',
     name: 'AIChat',
     component: AIChat,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/eval',
+    name: 'EvalDashboard',
+    component: EvalDashboard,
     meta: { requiresAuth: true }
   },
 ]

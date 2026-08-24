@@ -9,9 +9,11 @@ import (
 
 	"github.com/cloudwego/eino-ext/components/model/ark"
 	"github.com/cloudwego/eino-ext/components/model/openai"
+	"github.com/cloudwego/eino/callbacks"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
+	"github.com/cloudwego/eino/flow/agent"
 	"github.com/cloudwego/eino/flow/agent/react"
 	"github.com/cloudwego/eino/schema"
 )
@@ -137,11 +139,37 @@ func NewAgentModel(ctx context.Context) (*AgentModel, error) {
 }
 
 func (m *AgentModel) GenerateResponse(ctx context.Context, messages []*schema.Message) (*schema.Message, error) {
-	resp, err := m.llm.Generate(ctx, messages)
+	var opts []agent.AgentOption
+	if handler := toolTraceCallback(ctx); handler != nil {
+		opts = append(opts, agent.WithComposeOptions(compose.WithCallbacks(handler)))
+	}
+	resp, err := m.llm.Generate(ctx, messages, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("%s generate failed: %w", m.modelType, err)
 	}
 	return resp, nil
+}
+
+func toolTraceCallback(ctx context.Context) callbacks.Handler {
+	trace := toolTraceFromContext(ctx)
+	if trace == nil {
+		return nil
+	}
+	return callbacks.NewHandlerBuilder().OnStartFn(
+		func(ctx context.Context, info *callbacks.RunInfo, input callbacks.CallbackInput) context.Context {
+			if info == nil || info.Component != compose.ComponentOfToolsNode {
+				return ctx
+			}
+			message, ok := input.(*schema.Message)
+			if !ok || message == nil {
+				return ctx
+			}
+			for _, call := range message.ToolCalls {
+				trace.record(call.Function.Name, call.Function.Arguments)
+			}
+			return ctx
+		},
+	).Build()
 }
 
 func (m *AgentModel) StreamResponse(ctx context.Context, messages []*schema.Message, cb StreamCallback) (string, error) {

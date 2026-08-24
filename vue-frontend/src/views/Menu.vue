@@ -33,6 +33,22 @@
           <div class="card-arrow">→</div>
           <div class="card-glow"></div>
         </article>
+
+        <article class="menu-card" @click="$router.push('/eval')">
+          <div class="card-geo">
+            <span></span><span></span>
+          </div>
+          <div class="card-icon">
+            <el-icon :size="28"><DataAnalysis /></el-icon>
+          </div>
+          <div class="card-body">
+            <span class="card-tag">EVAL</span>
+            <h3 class="card-title">Agent 测评</h3>
+            <p class="card-desc">批量运行测评用例，评估 Agent 回复质量与延迟</p>
+          </div>
+          <div class="card-arrow">→</div>
+          <div class="card-glow"></div>
+        </article>
       </div>
     </main>
   </div>
@@ -41,13 +57,14 @@
 <script>
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ChatDotRound } from '@element-plus/icons-vue'
+import { ChatDotRound, DataAnalysis } from '@element-plus/icons-vue'
 import GeoBackground from '../components/GeoBackground.vue'
 
 export default {
   name: 'MenuView',
   components: {
     ChatDotRound,
+    DataAnalysis,
     GeoBackground
   },
   setup() {

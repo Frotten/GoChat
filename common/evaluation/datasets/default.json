@@ -1,0 +1,88 @@
+{
+  "id": "default",
+  "name": "Agent 基础测评集",
+  "description": "分别测量回答质量、Tool Calling 名称/参数准确度与 RAG Top-K 检索命中",
+  "version": "2.0.0",
+  "cases": [
+    {
+      "id": "basic-greeting",
+      "name": "基础问候",
+      "category": "answer",
+      "input": "你好，请简单介绍一下你自己",
+      "expected_output": "",
+      "expected_keywords": [],
+      "score_type": "none"
+    },
+    {
+      "id": "time-tool",
+      "name": "时间工具调用",
+      "category": "tool_call",
+      "input": "现在几点了？请告诉我当前时间",
+      "expected_output": "",
+      "expected_keywords": ["时间", "点"],
+      "score_type": "keywords",
+      "expected_tools": [
+        { "name": "get_current_time" }
+      ]
+    },
+    {
+      "id": "task-layer-trigger",
+      "name": "任务层触发",
+      "category": "answer",
+      "input": "帮我分析一下如何实现一个简单的 HTTP 服务",
+      "expected_output": "",
+      "expected_keywords": ["HTTP", "服务"],
+      "score_type": "keywords"
+    },
+    {
+      "id": "code-format",
+      "name": "Go 代码格式化",
+      "category": "tool_call",
+      "input": "请帮我格式化这段 Go 代码：package main\nfunc main(){fmt.Println(\"hello\")}",
+      "expected_output": "",
+      "expected_keywords": ["main", "package"],
+      "score_type": "keywords",
+      "expected_tools": [
+        {
+          "name": "format_go_code",
+          "arguments": {
+            "code": "package main\nfunc main(){fmt.Println(\"hello\")}"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rag-babel-source",
+      "name": "RAG 巴别塔来源命中",
+      "category": "rag",
+      "input": "巴别塔在希伯来语中的含义是什么？",
+      "expected_output": "",
+      "expected_keywords": ["变乱"],
+      "score_type": "keywords",
+      "expected_sources": ["巴别塔.txt"],
+      "rag_top_k": 5
+    },
+    {
+      "id": "rag-esperanto-source",
+      "name": "RAG 世界语来源命中",
+      "category": "rag",
+      "input": "世界语是谁在何时创立的？",
+      "expected_output": "",
+      "expected_keywords": ["柴门霍夫", "1887"],
+      "score_type": "keywords",
+      "expected_sources": ["世界语.txt"],
+      "rag_top_k": 5
+    },
+    {
+      "id": "rag-solaris-source",
+      "name": "RAG 索拉里斯海来源命中",
+      "category": "rag",
+      "input": "索拉里斯海会如何影响人类的记忆与情感？",
+      "expected_output": "",
+      "expected_keywords": ["记忆", "情感"],
+      "score_type": "keywords",
+      "expected_sources": ["索拉里斯海.txt"],
+      "rag_top_k": 5
+    }
+  ]
+}

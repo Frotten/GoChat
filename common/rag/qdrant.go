@@ -103,11 +103,12 @@ type searchResult struct {
 	} `json:"result"`
 }
 
-func (q *QdrantClient) Search(ctx context.Context, vector []float32, limit int) ([]string, error) {
+func (q *QdrantClient) Search(ctx context.Context, vector []float32, limit int) ([]RetrievalHit, error) {
 	body := map[string]interface{}{
-		"vector":       vector,
-		"limit":        limit,
-		"with_payload": true,
+		"vector":          vector,
+		"limit":           limit,
+		"with_payload":    true,
+		"score_threshold": q.cfg.MinScore,
 	}
 	data, err := json.Marshal(body)
 	if err != nil {
@@ -137,13 +138,21 @@ func (q *QdrantClient) Search(ctx context.Context, vector []float32, limit int) 
 		return nil, err
 	}
 
-	chunks := make([]string, 0, len(result.Result))
+	hits := make([]RetrievalHit, 0, len(result.Result))
 	seen := make(map[string]bool)
-	for _, hit := range result.Result {
-		if text, ok := hit.Payload["text"].(string); ok && text != "" && !seen[text] && hit.Score > 0.7 {
+	for rank, hit := range result.Result {
+		if text, ok := hit.Payload["text"].(string); ok && text != "" && !seen[text] {
 			seen[text] = true
-			chunks = append(chunks, text)
+			source, _ := hit.Payload["source"].(string)
+			chunkID := 0
+			if raw, ok := hit.Payload["chunk_id"].(float64); ok {
+				chunkID = int(raw)
+			}
+			hits = append(hits, RetrievalHit{
+				Text: text, Source: source, ChunkID: chunkID,
+				Score: hit.Score, Rank: rank + 1,
+			})
 		}
 	}
-	return chunks, nil
+	return hits, nil
 }

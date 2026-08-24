@@ -17,6 +17,7 @@ func InitRouter() *gin.Engine {
 		AIGroup := enterRouter.Group("/AI")
 		AIGroup.Use(jwt.Auth())
 		AIRouter(AIGroup)
+		EvalRouter(AIGroup.Group("/eval"))
 	}
 
 	return r

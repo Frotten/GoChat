@@ -23,6 +23,15 @@ type Service struct {
 	qdrant   *QdrantClient
 }
 
+// RetrievalHit is one ranked vector-search result with provenance.
+type RetrievalHit struct {
+	Text    string  `json:"text"`
+	Source  string  `json:"source"`
+	ChunkID int     `json:"chunk_id"`
+	Score   float64 `json:"score"`
+	Rank    int     `json:"rank"`
+}
+
 func GetService() *Service {
 	once.Do(func() {
 		cfg := LoadConfig()
@@ -114,27 +123,39 @@ func (s *Service) IndexFromInfo(ctx context.Context) error {
 
 // Retrieve 根据用户问题检索相关文档片段
 func (s *Service) Retrieve(ctx context.Context, query string) string {
-	if !s.Enabled() || strings.TrimSpace(query) == "" || len(query) < 5 { //短句，通常为判断，问候或者其他无实际检索意义的提问，不进行检索
-		return ""
-	}
-	vec, err := s.embedder.Embed(ctx, query)
+	hits, err := s.RetrieveHits(ctx, query, s.cfg.TopK)
 	if err != nil {
-		log.Printf("[RAG] retrieve embed error: %v", err)
+		log.Printf("[RAG] retrieve error: %v", err)
 		return ""
 	}
-	chunks, err := s.qdrant.Search(ctx, vec, s.cfg.TopK)
-	if err != nil {
-		log.Printf("[RAG] retrieve search error: %v", err)
-		return ""
-	}
-	if len(chunks) == 0 {
+	if len(hits) == 0 {
 		return ""
 	}
 	var b strings.Builder
-	for i, c := range chunks {
-		b.WriteString(fmt.Sprintf("[%d] %s\n\n", i+1, c))
+	for _, hit := range hits {
+		b.WriteString(fmt.Sprintf("[%d] 来源: %s#%d\n%s\n\n", hit.Rank, hit.Source, hit.ChunkID, hit.Text))
 	}
 	return strings.TrimSpace(b.String())
+}
+
+// RetrieveHits returns ranked chunks with source metadata for evaluation and observability.
+func (s *Service) RetrieveHits(ctx context.Context, query string, limit int) ([]RetrievalHit, error) {
+	query = strings.TrimSpace(query)
+	if !s.Enabled() || query == "" || len([]rune(query)) < 5 {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = s.cfg.TopK
+	}
+	vec, err := s.embedder.Embed(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("embed query: %w", err)
+	}
+	hits, err := s.qdrant.Search(ctx, vec, limit)
+	if err != nil {
+		return nil, fmt.Errorf("search query: %w", err)
+	}
+	return hits, nil
 }
 
 // chunkPointID 生成 Qdrant 要求的 UUID（同一文件+分块索引可稳定复现，便于重复索引覆盖）

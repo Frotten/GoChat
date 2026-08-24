@@ -16,6 +16,7 @@ type Config struct {
 	TopK             int
 	ChunkSize        int
 	ChunkOverlap     int
+	MinScore         float64
 }
 
 func LoadConfig() Config {
@@ -34,6 +35,10 @@ func LoadConfig() Config {
 	overlap, _ := strconv.Atoi(os.Getenv("RAG_CHUNK_OVERLAP"))
 	if overlap < 0 {
 		overlap = 50
+	}
+	minScore, _ := strconv.ParseFloat(os.Getenv("RAG_SCORE_THRESHOLD"), 64)
+	if minScore <= 0 || minScore > 1 {
+		minScore = 0.7
 	}
 
 	qdrantURL := strings.TrimSpace(os.Getenv("QDRANT_HTTP_URL"))
@@ -79,6 +84,7 @@ func LoadConfig() Config {
 		TopK:             topK,
 		ChunkSize:        chunkSize,
 		ChunkOverlap:     overlap,
+		MinScore:         minScore,
 	}
 }
 

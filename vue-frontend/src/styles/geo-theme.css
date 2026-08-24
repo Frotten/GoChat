@@ -1,0 +1,393 @@
+/* ── Geo Design System ── */
+:root {
+  --c-bg: #f4f3f0;
+  --c-surface: #fafaf8;
+  --c-surface-elevated: #ffffff;
+  --c-ink: #1a1a1a;
+  --c-ink-muted: #6b6b6b;
+  --c-ink-faint: #a8a8a8;
+  --c-line: rgba(26, 26, 26, 0.08);
+  --c-line-strong: rgba(26, 26, 26, 0.16);
+  --c-accent: #4f46e5;
+  --c-accent-soft: rgba(79, 70, 229, 0.08);
+  --c-flow-1: #818cf8;
+  --c-flow-2: #a78bfa;
+  --c-flow-3: #6366f1;
+  --c-danger: #ef4444;
+  --c-danger-soft: rgba(239, 68, 68, 0.08);
+  --shadow-soft: 0 2px 16px rgba(26, 26, 26, 0.04), 0 1px 4px rgba(26, 26, 26, 0.03);
+  --shadow-medium: 0 8px 32px rgba(26, 26, 26, 0.06), 0 2px 8px rgba(26, 26, 26, 0.04);
+  --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.12);
+  --radius-sm: 2px;
+  --radius-md: 6px;
+  --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+/* ── Shared Page Shell ── */
+.geo-page {
+  min-height: 100vh;
+  background: var(--c-bg);
+  position: relative;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  color: var(--c-ink);
+}
+
+.geo-page--flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.geo-page--column {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Background Decorations ── */
+.geo-bg-decor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.geo-block {
+  position: absolute;
+  border: 1px solid var(--c-line);
+  background: transparent;
+}
+
+.geo-block--a {
+  width: 180px;
+  height: 180px;
+  top: -40px;
+  right: 12%;
+  transform: rotate(12deg);
+  opacity: 0.5;
+}
+
+.geo-block--b {
+  width: 120px;
+  height: 120px;
+  bottom: 8%;
+  left: 8%;
+  transform: rotate(-8deg);
+  border-color: var(--c-line-strong);
+  opacity: 0.35;
+}
+
+.geo-block--c {
+  width: 80px;
+  height: 80px;
+  top: 40%;
+  left: 5%;
+  transform: rotate(20deg);
+  opacity: 0.25;
+}
+
+.geo-flow-line {
+  position: absolute;
+  opacity: 0;
+  animation: geoFlowPulse 6s ease-in-out infinite;
+}
+
+.geo-flow-line--h {
+  height: 1px;
+  width: 40%;
+  top: 22%;
+  left: -10%;
+  background: linear-gradient(90deg, transparent, var(--c-flow-1), var(--c-flow-2), transparent);
+}
+
+.geo-flow-line--v {
+  width: 1px;
+  height: 35%;
+  top: 10%;
+  right: 28%;
+  background: linear-gradient(180deg, transparent, var(--c-flow-2), transparent);
+  animation-delay: 2s;
+}
+
+.geo-flow-line--d {
+  height: 1px;
+  width: 55%;
+  bottom: 18%;
+  right: -15%;
+  transform: rotate(-14deg);
+  background: linear-gradient(90deg, transparent, var(--c-flow-1), var(--c-flow-2), transparent);
+  animation-delay: 4s;
+}
+
+.geo-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.35;
+  animation: geoOrbDrift 12s ease-in-out infinite;
+}
+
+.geo-orb--1 {
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, rgba(129, 140, 248, 0.25), transparent 70%);
+  top: -80px;
+  left: 30%;
+}
+
+.geo-orb--2 {
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.2), transparent 70%);
+  bottom: -60px;
+  right: 15%;
+  animation-delay: -6s;
+}
+
+@keyframes geoFlowPulse {
+  0%, 100% { opacity: 0; transform: translateX(0); }
+  30% { opacity: 0.6; }
+  50% { opacity: 0.8; transform: translateX(20px); }
+  70% { opacity: 0.4; }
+}
+
+@keyframes geoOrbDrift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -20px) scale(1.05); }
+  66% { transform: translate(-20px, 15px) scale(0.95); }
+}
+
+@keyframes geoAccentShimmer {
+  0%, 100% { opacity: 1; width: 32px; }
+  50% { opacity: 0.6; width: 48px; }
+}
+
+@keyframes geoBtnShine {
+  0%, 70%, 100% { transform: translateX(-100%); }
+  85% { transform: translateX(100%); }
+}
+
+@keyframes geoSlideIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes geoFadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Shared Card / Panel ── */
+.geo-panel {
+  position: relative;
+  z-index: 1;
+  background: var(--c-surface-elevated);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-medium);
+  animation: geoSlideIn 0.5s ease-out;
+}
+
+.geo-panel__accent {
+  position: absolute;
+  top: 0;
+  left: 28px;
+  width: 32px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--c-accent), var(--c-flow-2));
+  animation: geoAccentShimmer 3s ease-in-out infinite;
+}
+
+.geo-panel__label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--c-ink-faint);
+  margin-bottom: 4px;
+}
+
+.geo-panel__title {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--c-ink);
+  margin: 0;
+}
+
+/* ── Shared Buttons ── */
+.geo-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+  overflow: hidden;
+  font-family: var(--font-sans);
+}
+
+.geo-btn--primary {
+  background: var(--c-ink);
+  color: var(--c-surface-elevated);
+  border: none;
+  box-shadow: var(--shadow-soft);
+}
+
+.geo-btn--primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.12) 50%, transparent 60%);
+  transform: translateX(-100%);
+}
+
+.geo-btn--primary:hover:not(:disabled)::after {
+  animation: geoBtnShine 0.6s ease forwards;
+}
+
+.geo-btn--primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-medium);
+}
+
+.geo-btn--ghost {
+  background: transparent;
+  color: var(--c-ink-muted);
+  border: 1px solid var(--c-line);
+}
+
+.geo-btn--ghost:hover {
+  border-color: var(--c-line-strong);
+  color: var(--c-ink);
+  background: rgba(26, 26, 26, 0.02);
+}
+
+.geo-btn--outline {
+  background: transparent;
+  color: var(--c-ink);
+  border: 1px solid var(--c-line-strong);
+}
+
+.geo-btn--outline:hover:not(:disabled) {
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+  box-shadow: var(--shadow-glow);
+}
+
+.geo-btn--danger {
+  background: transparent;
+  color: var(--c-danger);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.geo-btn--danger:hover {
+  background: var(--c-danger-soft);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.geo-btn--text {
+  background: transparent;
+  border: none;
+  color: var(--c-ink-muted);
+  padding: 8px 0;
+  box-shadow: none;
+}
+
+.geo-btn--text:hover {
+  color: var(--c-accent);
+}
+
+.geo-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.geo-btn--block {
+  width: 100%;
+}
+
+.geo-btn--lg {
+  padding: 12px 20px;
+  font-size: 14px;
+}
+
+/* ── Element Plus Overrides (auth forms) ── */
+.geo-form-panel .el-card {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.geo-form-panel .el-card__header {
+  padding: 0;
+  border: none;
+}
+
+.geo-form-panel .el-card__body {
+  padding: 0;
+}
+
+.geo-form-panel .el-form-item__label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-ink-muted);
+  font-weight: 500;
+}
+
+.geo-form-panel .el-input__wrapper {
+  border-radius: var(--radius-sm);
+  box-shadow: none !important;
+  border: 1px solid var(--c-line);
+  background: var(--c-surface);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.geo-form-panel .el-input__wrapper:hover {
+  border-color: var(--c-line-strong);
+}
+
+.geo-form-panel .el-input__wrapper.is-focus {
+  border-color: var(--c-accent) !important;
+  box-shadow: var(--shadow-glow) !important;
+}
+
+.geo-form-panel .el-button--primary {
+  background: var(--c-ink) !important;
+  border: none !important;
+  border-radius: var(--radius-sm) !important;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  box-shadow: var(--shadow-soft);
+  transition: all 0.15s ease;
+}
+
+.geo-form-panel .el-button--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-medium);
+  background: var(--c-ink) !important;
+}
+
+.geo-form-panel .el-button--text {
+  color: var(--c-ink-muted) !important;
+  font-weight: 400;
+}
+
+.geo-form-panel .el-button--text:hover {
+  color: var(--c-accent) !important;
+  background: transparent !important;
+}
+
+.geo-form-panel .el-form-item {
+  margin-bottom: 22px;
+}

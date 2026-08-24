@@ -142,6 +142,10 @@ go install github.com/go-swagger/go-swagger/cmd/swagger@latest
 | POST | `/api/v1/AI/chat/delete-session` | 删除会话 | JWT |
 | POST | `/api/v1/AI/chat/send-stream-new-session` | 新建会话 + SSE | JWT |
 | POST | `/api/v1/AI/chat/send-stream` | 流式对话 SSE | JWT |
+| GET | `/api/v1/AI/eval/datasets` | 测评集列表 | JWT |
+| POST | `/api/v1/AI/eval/runs` | 启动测评 | JWT |
+| GET | `/api/v1/AI/eval/runs/:id` | 测评汇总指标 | JWT |
+| GET | `/api/v1/AI/eval/runs/:id/results` | 测评逐条结果与轨迹 | JWT |
 
 统一响应体包含 `status_code`（`1000` 表示成功）与 `status_msg`，详见 [`common/code/code.go`](common/code/code.go)。
 
@@ -158,7 +162,18 @@ go install github.com/go-swagger/go-swagger/cmd/swagger@latest
 | `PROJECT_ROOT` | RAG 文档根目录，默认 `./Info` |
 | `QDRANT_HTTP_URL` / `QDRANT_COLLECTION` | Qdrant 地址与集合名 |
 | `RAG_TOP_K` / `RAG_CHUNK_SIZE` / `RAG_CHUNK_OVERLAP` | 检索与分块参数 |
+| `RAG_SCORE_THRESHOLD` | Qdrant 最低相似度，默认 `0.7` |
 | `CAPTCHA_DEV_MODE` | 开发模式可跳过部分验证码校验 |
+
+## Agent 测评指标
+
+内置测评集在 [`common/evaluation/datasets/default.json`](common/evaluation/datasets/default.json) 中。用例通过 `category` 分为三类：
+
+- `answer`：按 `none`、`exact`、`contains` 或 `keywords` 检查最终回答。
+- `tool_call`：按 `expected_tools` 检查实际执行的工具名称、JSON 参数子集和调用顺序；汇总 Precision、Recall、F1、参数准确率及精确匹配率。
+- `rag`：按 `expected_sources` 对检索 Top-K 排名计算 Hit Rate、Recall@K、Precision@K 和 MRR。检索错误单独记录，不会被空回答掩盖。
+
+`pass_threshold` 可在单条用例中覆盖默认通过阈值（范围 `0~1`）。Tool Calling 默认要求无多余调用、名称/参数/顺序全部匹配；RAG 默认要求所有标注来源在 Top-K 内命中。
 
 ## 状态码说明
 

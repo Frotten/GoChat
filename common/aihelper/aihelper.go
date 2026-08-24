@@ -7,6 +7,7 @@ import (
 	"GopherAI/utils"
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/cloudwego/eino/schema"
@@ -88,22 +89,17 @@ func (a *AIHelper) buildMessagesWithRAG(ctx context.Context, userQuestion string
 	messages := utils.ConvertToSchemaMessages(a.messages)
 	a.mu.RUnlock()
 
-	toolHint := &schema.Message{
-		Role:    schema.System,
-		Content: promoteTemplate,
-	}
-
 	contextText := rag.GetService().Retrieve(ctx, userQuestion)
-	if contextText == "" {
-		return append([]*schema.Message{toolHint}, messages...)
+	return append([]*schema.Message{BuildSystemPrompt(contextText)}, messages...)
+}
+
+// BuildSystemPrompt keeps production and evaluation requests on the same prompt path.
+func BuildSystemPrompt(contextText string) *schema.Message {
+	content := promoteTemplate
+	if strings.TrimSpace(contextText) != "" {
+		content = fmt.Sprintf(promoteTemplate+"\n\n参考资料：\n%s", contextText)
 	}
-	systemMsg := &schema.Message{
-		Role: schema.System,
-		Content: fmt.Sprintf(promoteTemplate+"\n\n参考资料：\n%s",
-			contextText,
-		),
-	}
-	return append([]*schema.Message{systemMsg}, messages...)
+	return &schema.Message{Role: schema.System, Content: content}
 }
 
 func (a *AIHelper) GenerateResponse(userName string, ctx context.Context, userQuestion string) (*model.Message, error) {
