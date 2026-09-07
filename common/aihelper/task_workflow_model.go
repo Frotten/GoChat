@@ -84,7 +84,7 @@ func NewTaskLayerModel(ctx context.Context, executor AIModel) (*TaskLayerModel, 
 
 func (m *TaskLayerModel) GenerateResponse(ctx context.Context, messages []*schema.Message) (*schema.Message, error) {
 	messages = normalizeMessages(messages)
-	if !shouldUseTaskLayer(messages) {
+	if !m.shouldUseTaskLayer(ctx, messages) {
 		return m.executor.GenerateResponse(ctx, messages)
 	}
 	state := newTaskState(messages, m.maxTaskRound)
@@ -530,7 +530,14 @@ func formatObservations(observations []Observation) string {
 	return strings.TrimSpace(b.String())
 }
 
-func shouldUseTaskLayer(messages []*schema.Message) bool {
+type taskLayerDecision string
+
+const (
+	taskLayerDecisionEnhanced taskLayerDecision = "ENHANCED"
+	taskLayerDecisionDirect   taskLayerDecision = "DIRECT"
+)
+
+func (m *TaskLayerModel) shouldUseTaskLayer(ctx context.Context, messages []*schema.Message) bool {
 	mode := strings.ToLower(strings.TrimSpace(os.Getenv("GOAI_TASK_LAYER")))
 	switch mode {
 	case "off", "false", "0", "disable", "disabled":
@@ -543,19 +550,37 @@ func shouldUseTaskLayer(messages []*schema.Message) bool {
 	if goal == "" {
 		return false
 	}
-	lower := strings.ToLower(goal)
-	taskHints := []string{
-		"请帮", "帮我", "实现", "修改", "修复", "创建", "生成", "写入", "读取", "搜索", "查找",
-		"分析", "总结", "重构", "优化", "设计", "添加", "删除", "更新", "测试", "运行",
-		"implement", "modify", "fix", "create", "generate", "write", "read", "search",
-		"analyze", "summarize", "refactor", "optimize", "design", "add", "delete", "update", "test", "run",
+
+	resp, err := m.executor.GenerateResponse(ctx, buildTaskLayerDecisionMessages(messages))
+	if err != nil || resp == nil {
+		return false
 	}
-	for _, hint := range taskHints {
-		if strings.Contains(lower, strings.ToLower(hint)) {
-			return true
-		}
+	return parseTaskLayerDecision(resp.Content) == taskLayerDecisionEnhanced
+}
+
+func buildTaskLayerDecisionMessages(messages []*schema.Message) []*schema.Message {
+	msgs := append([]*schema.Message{}, messages...)
+	msgs = append(msgs, &schema.Message{
+		Role: schema.User,
+		Content: "你现在是任务复杂度路由 Agent。请判断下面的用户请求是否需要开启增强思考模式。\n" +
+			"增强思考模式适用于：需要规划多个步骤、调用工具、修改外部状态、验证结果，或失败后可能需要调整方案的任务。\n" +
+			"普通模式适用于：闲聊、简单问答、单步且无需工具或验证即可直接回答的请求。\n" +
+			"请结合对话上下文和任务语义进行判断，不要只根据关键词判断，也不要执行用户请求或调用工具。\n" +
+			"只允许输出一个单词：需要增强思考时输出 ENHANCED，否则输出 DIRECT。\n\n" +
+			"用户请求：\n" + latestUserContent(messages),
+	})
+	return msgs
+}
+
+func parseTaskLayerDecision(raw string) taskLayerDecision {
+	decision := strings.ToUpper(strings.TrimSpace(raw))
+	decision = strings.TrimSpace(strings.Trim(decision, "`*_ \t\r\n"))
+	switch decision {
+	case string(taskLayerDecisionEnhanced):
+		return taskLayerDecisionEnhanced
+	default:
+		return taskLayerDecisionDirect
 	}
-	return false
 }
 
 func latestUserContent(messages []*schema.Message) string {

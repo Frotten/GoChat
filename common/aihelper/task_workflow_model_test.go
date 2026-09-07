@@ -56,14 +56,21 @@ func TestTaskLayerModelRunsTaskWorkflow(t *testing.T) {
 func TestTaskLayerModelBypassesSimpleChatInAutoMode(t *testing.T) {
 	t.Setenv("GOAI_TASK_LAYER", "auto")
 
+	var decisionCount int
 	base := &fakeAIModel{
 		modelType: "fake",
 		generate: func(ctx context.Context, messages []*schema.Message) (*schema.Message, error) {
 			latest := messages[len(messages)-1].Content
-			if strings.Contains(latest, "Plan 阶段") {
+			switch {
+			case strings.Contains(latest, "任务复杂度路由 Agent"):
+				decisionCount++
+				return &schema.Message{Content: "DIRECT"}, nil
+			case strings.Contains(latest, "Plan 阶段"):
 				t.Fatal("simple chat should not enter task workflow")
+				return nil, nil
+			default:
+				return &schema.Message{Content: "direct answer"}, nil
 			}
-			return &schema.Message{Content: "direct answer"}, nil
 		},
 		stream: func(ctx context.Context, messages []*schema.Message, cb StreamCallback) (string, error) {
 			return "", nil
@@ -76,13 +83,74 @@ func TestTaskLayerModelBypassesSimpleChatInAutoMode(t *testing.T) {
 	}
 
 	resp, err := model.GenerateResponse(context.Background(), []*schema.Message{
-		{Role: schema.User, Content: "你好"},
+		{Role: schema.User, Content: "请帮我用一句话打个招呼"},
 	})
 	if err != nil {
 		t.Fatalf("GenerateResponse failed: %v", err)
 	}
 	if resp.Content != "direct answer" {
 		t.Fatalf("unexpected response: %s", resp.Content)
+	}
+	if decisionCount != 1 {
+		t.Fatalf("expected one agent decision, got %d", decisionCount)
+	}
+}
+
+func TestTaskLayerModelUsesAgentDecisionInsteadOfKeywords(t *testing.T) {
+	t.Setenv("GOAI_TASK_LAYER", "auto")
+	t.Setenv("GOAI_TASK_MAX_ROUND", "2")
+
+	var decisionCount int
+	var executeCount int
+	base := &fakeAIModel{
+		modelType: "fake",
+		generate: func(ctx context.Context, messages []*schema.Message) (*schema.Message, error) {
+			latest := messages[len(messages)-1].Content
+			switch {
+			case strings.Contains(latest, "任务复杂度路由 Agent"):
+				decisionCount++
+				return &schema.Message{Content: "ENHANCED"}, nil
+			case strings.Contains(latest, "Plan 阶段"):
+				return &schema.Message{Content: "1. 理解目标\n2. 检查结果"}, nil
+			case strings.Contains(latest, "Execute 阶段"):
+				executeCount++
+				return &schema.Message{Content: "step done"}, nil
+			case strings.Contains(latest, "Final 阶段"):
+				return &schema.Message{Content: "enhanced answer"}, nil
+			default:
+				return &schema.Message{Content: "direct answer"}, nil
+			}
+		},
+		stream: func(ctx context.Context, messages []*schema.Message, cb StreamCallback) (string, error) {
+			return "", nil
+		},
+	}
+
+	model, err := NewTaskLayerModel(context.Background(), base)
+	if err != nil {
+		t.Fatalf("NewTaskLayerModel failed: %v", err)
+	}
+
+	resp, err := model.GenerateResponse(context.Background(), []*schema.Message{
+		{Role: schema.User, Content: "仓库最近有点不对劲，你看着处理好并确认没问题"},
+	})
+	if err != nil {
+		t.Fatalf("GenerateResponse failed: %v", err)
+	}
+	if resp.Content != "enhanced answer" {
+		t.Fatalf("unexpected response: %s", resp.Content)
+	}
+	if decisionCount != 1 || executeCount != 2 {
+		t.Fatalf("expected decision=1 and execute=2, got decision=%d execute=%d", decisionCount, executeCount)
+	}
+}
+
+func TestParseTaskLayerDecisionDefaultsToDirect(t *testing.T) {
+	if got := parseTaskLayerDecision("**enhanced**"); got != taskLayerDecisionEnhanced {
+		t.Fatalf("expected enhanced decision, got %s", got)
+	}
+	if got := parseTaskLayerDecision("I think enhanced mode is useful"); got != taskLayerDecisionDirect {
+		t.Fatalf("unexpected decision for invalid output: %s", got)
 	}
 }
 
